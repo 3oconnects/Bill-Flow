@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BillFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <!-- Auth Pages (shown when not logged in) -->
+  <div id="auth-root" style="display:none"></div>
+
+  <!-- App Shell (shown when logged in) -->
+  <div id="app-root" style="display:none">
+    <aside id="sidebar">
+      <div class="org-switcher" id="org-display">
+        <div class="org-avatar" id="org-avatar">M</div>
+        <div class="org-info">
+          <div class="org-name" id="org-name-display">My Business</div>
+          <div class="org-role" id="org-role-display">owner</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav" id="sidebar-nav"></nav>
+      <div class="sidebar-footer-nav" id="sidebar-footer-nav"></div>
+    </aside>
+
+    <div class="main-wrap">
+      <header class="topbar" id="topbar">
+        <div class="topbar-left">
+          <button class="btn btn-ghost btn-icon" onclick="toggleSidebarCollapse()" title="Toggle Sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="topbar-page-ctx">
+            <h1 class="topbar-title" id="topbar-title">Dashboard</h1>
+            <span class="topbar-subtitle" id="topbar-subtitle"></span>
+          </div>
+        </div>
+        <div class="topbar-center">
+          <div class="topbar-search-wrap">
+            <svg class="topbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="topbar-search-input" type="text" placeholder="Universal Search..." id="topbar-search-input">
+            <div class="topbar-search-kbd"><span>⌘</span><span>K</span></div>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-actions" id="topbar-actions"></div>
+          <div class="topbar-divider"></div>
+          <button class="topbar-bell" title="Notifications" onclick="toggleNotifPanel(event)" id="notif-bell-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="topbar-bell-dot" id="notif-dot"></span>
+          </button>
+          <div class="topbar-user" id="topbar-user-btn" onclick="toggleTopbarUserMenu(event)">
+            <div class="topbar-user-info">
+              <div class="topbar-user-name" id="topbar-user-name-hdr">ADMIN</div>
+              <div class="topbar-user-role">Primary Auth</div>
+            </div>
+            <div class="topbar-avatar" id="topbar-avatar-hdr">A</div>
+          </div>
+          <div class="topbar-user-dropdown" id="topbar-user-dropdown" style="display:none">
+            <button onclick="navigateTo('settings');closeTopbarUserMenu()">⚙️ Settings</button>
+            <button onclick="goToProfileSettings()">👤 Profile</button>
+            <button onclick="doLogout()">🚪 Sign Out</button>
+          </div>
+        </div>
+      </header>
+      <main id="main-content" class="main-content"></main>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Modal Container -->
+  <div id="modal-container"></div>
+
+  <!-- Notification Panel -->
+  <div id="notif-panel" class="notif-panel" style="display:none">
+    <div class="notif-header">
+      <h4>🔔 Notifications</h4>
+      <button class="notif-mark-all" onclick="markAllNotifRead()">Mark all read</button>
+    </div>
+    <div class="notif-list" id="notif-list"></div>
+    <div class="notif-footer">
+      <button onclick="clearAllNotif()">Clear all notifications</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/components.js"></script>
+  <script src="/js/pages/auth.js"></script>
+  <script src="/js/pages/dashboard.js"></script>
+
+  <!-- Customers Module -->
+  <script src="/js/pages/customers/base.js"></script>
+  <script src="/js/pages/customers/render.js"></script>
+  <script src="/js/pages/customers/detail.js"></script>
+  <script src="/js/pages/customers/form.js"></script>
+
+  <!-- Vendors Module -->
+  <script src="/js/pages/vendors/base.js"></script>
+  <script src="/js/pages/vendors/render.js"></script>
+  <script src="/js/pages/vendors/profile.js"></script>
+  <script src="/js/pages/vendors/form.js"></script>
+  
+  <!-- Products Module -->
+  <script src="/js/pages/products/base.js"></script>
+  <script src="/js/pages/products/render.js"></script>
+  <script src="/js/pages/products/table.js"></script>
+  <script src="/js/pages/products/form.js"></script>
+  <script src="/js/pages/products/bulk.js"></script>
+  <script src="/js/pages/products/scanner.js"></script>
+  <script src="/js/pages/products/detail.js"></script>
+
+  <!-- Invoices Module -->
+  <script src="/js/pages/invoices/base.js"></script>
+  <script src="/js/pages/invoices/components.js"></script>
+  <script src="/js/pages/invoices/table.js"></script>
+  <script src="/js/pages/invoices/form.js"></script>
+  <script src="/js/pages/invoices/preview.js"></script>
+  <script src="/js/pages/invoices/scanner.js"></script>
+  <!-- Expenses Module -->
+  <script src="/js/pages/expenses/base.js"></script>
+  <script src="/js/pages/expenses/render.js"></script>
+  <script src="/js/pages/expenses/form.js"></script>
+  <!-- Settings Module -->
+  <script src="/js/pages/settings/base.js"></script>
+  <script src="/js/pages/settings/org.js"></script>
+  <script src="/js/pages/settings/misc.js"></script>
+
+  <script src="/js/pages/payments.js"></script>
+  <!-- Roles Module -->
+  <script src="/js/pages/roles/base.js"></script>
+  <script src="/js/pages/roles/manage.js"></script>
+  <!-- Reports Module -->
+  <script src="/js/pages/reports/base.js"></script>
+  <!-- Banking Module -->
+  <script src="/js/pages/banking.js"></script>
+  <!-- Marketplace & Others -->
+  <script src="/js/pages/marketplace.js"></script>
+  <!-- Core App Module -->
+  <script src="/js/core/app.js"></script>
+  <script src="/js/core/nav.js"></script>
+  <script src="/js/core/ui.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof APP !== 'undefined') APP.init();
+    });
+  </script>
+</body>
+</html>
