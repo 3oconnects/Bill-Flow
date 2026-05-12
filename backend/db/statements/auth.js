@@ -5,6 +5,7 @@ module.exports = {
   insertOrg: db.prepare(`INSERT INTO organizations (id, name, email, gstin, state, currency, inv_prefix, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
   getOrg: db.prepare(`SELECT id, name, email, phone, address, city, state, country, pincode, gstin, pan, logo_url, currency, inv_prefix, next_inv_no, default_notes, default_terms, created_at, updated_at FROM organizations WHERE id = ? AND deleted_at IS NULL`),
   updateOrg: db.prepare(`UPDATE organizations SET name=?, email=?, phone=?, address=?, city=?, state=?, pincode=?, gstin=?, pan=?, currency=?, inv_prefix=?, next_inv_no=?, default_notes=?, default_terms=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`),
+  setOrgCreator: db.prepare(`UPDATE organizations SET created_by = ? WHERE id = ?`),
 
   insertUser: db.prepare(`INSERT INTO users (id, org_id, name, email, password_hash, role, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`),
   getUserByEmail: db.prepare(`SELECT id, org_id, name, email, password_hash, role, is_active, last_login, created_at FROM users WHERE email = ? AND deleted_at IS NULL`),

@@ -19,11 +19,17 @@ router.post('/register', async (req, res) => {
 
     const orgId = uuid();
     const userId = uuid();
-    await stmts.insertOrg.run(orgId, orgName, email, '', 'Tamil Nadu', 'INR', 'INV-', userId);
+    // 1. Create Org with NULL creator first (resolves circular FK dependency)
+    await stmts.insertOrg.run(orgId, orgName, email, '', 'Tamil Nadu', 'INR', 'INV-', null);
+    // 2. Create User
     await stmts.insertUser.run(userId, orgId, name, email, hashPassword(password), 'owner', userId);
+    // 3. Link User as Org Creator
+    await stmts.setOrgCreator.run(userId, orgId);
+
     const token = await createSession(userId, orgId);
     res.cookie('bf_session', token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000, sameSite: 'lax' });
-    sendSuccess(res, { user: { id: userId, name, email, role: 'owner' }, orgId });
+    const org = await stmts.getOrg.get(orgId);
+    sendSuccess(res, { user: { id: userId, name, email, role: 'owner' }, org });
   } catch (err) {
     console.error('Register error:', err);
     sendError(res, 'Internal server error during registration', 'INTERNAL_ERROR', 500);
@@ -45,7 +51,8 @@ router.post('/login', async (req, res) => {
     await stmts.updateLastLogin.run(user.id);
     const token = await createSession(user.id, user.org_id);
     res.cookie('bf_session', token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000, sameSite: 'lax' });
-    sendSuccess(res, { user: { id: user.id, name: user.name, email: user.email, role: user.role }, orgId: user.org_id });
+    const org = await stmts.getOrg.get(user.org_id);
+    sendSuccess(res, { user: { id: user.id, name: user.name, email: user.email, role: user.role }, org });
   } catch (err) {
     console.error('Login error:', err);
     sendError(res, 'Internal server error during login', 'INTERNAL_ERROR', 500);
