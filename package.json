@@ -8,6 +8,7 @@
     "dev:backend": "node backend/server.js",
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "node backend/server.js",
+    "build": "cd frontend && npm install && npm run build",
     "db:migrate": "node backend/db/migrate.js"
   },
   "dependencies": {

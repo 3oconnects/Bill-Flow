@@ -26,6 +26,12 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/public/index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 BillFlow Pro Backend running on http://localhost:${PORT}`);
-});
+// For traditional server use
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 BillFlow Pro Backend running on http://localhost:${PORT}`);
+  });
+}
+
+// Export for Vercel serverless
+module.exports = app;
