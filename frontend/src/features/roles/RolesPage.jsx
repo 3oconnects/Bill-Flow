@@ -40,48 +40,57 @@ function RoleForm({ initial, onSuccess, onCancel }) {
   })
 
   return (
-    <form onSubmit={handleSubmit((d) => mutation.mutate(d))}>
-      <div className="form-grid" style={{ marginBottom: 16 }}>
-        <div className="form-group">
-          <label className="form-label">Role Name *</label>
-          <input className="form-input" {...register('name', { required: true })} placeholder="e.g. Sales Manager" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Color</label>
-          <input type="color" {...register('color')} style={{ width: '100%', height: 38, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-2)', cursor: 'pointer' }} />
+    <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="po-form-standard">
+      <div className="form-section-compact">
+        <div className="form-section-header">Basic Info</div>
+        <div className="form-grid-2" style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: '0 48px' }}>
+          <div className="form-group-row">
+            <label className="form-label">Role Name <span style={{color:'var(--c-red)'}}>*</span></label>
+            <div className="input-group-compact">
+              <input className="form-input sm" {...register('name', { required: true })} placeholder="e.g. Sales Manager" />
+            </div>
+          </div>
+          <div className="form-group-row">
+            <label className="form-label">Color</label>
+            <div className="input-group-compact">
+              <input type="color" {...register('color')} style={{ width: '100%', height: 38, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface2)', cursor: 'pointer', padding: 2 }} />
+            </div>
+          </div>
         </div>
       </div>
 
-      <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Permissions</div>
-      <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-2)' }}>
-              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>Module</th>
-              {ACTIONS.map((a) => (
-                <th key={a} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 11, color: 'var(--text-3)', fontWeight: 600, textTransform: 'capitalize' }}>{a}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PERMISSION_GROUPS.map((group) => (
-              <tr key={group.key} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 500 }}>{group.label}</td>
-                {ACTIONS.map((action) => (
-                  <td key={action} style={{ padding: '10px 14px', textAlign: 'center' }}>
-                    <input type="checkbox" {...register(`permissions.${group.key}.${action}`)}
-                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--accent)' }} />
-                  </td>
+      <div className="form-section-compact" style={{ borderBottom: 'none' }}>
+        <div className="form-section-header">Permissions</div>
+        <div style={{ border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--c-surface2)' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Module</th>
+                {ACTIONS.map((a) => (
+                  <th key={a} style={{ padding: '12px 16px', textAlign: 'center', fontSize: 11, color: 'var(--c-text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{a}</th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {PERMISSION_GROUPS.map((group) => (
+                <tr key={group.key} style={{ borderTop: '1px solid var(--c-border)' }}>
+                  <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--c-text)' }}>{group.label}</td>
+                  {ACTIONS.map((action) => (
+                    <td key={action} style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <input type="checkbox" {...register(`permissions.${group.key}.${action}`)}
+                        style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--c-primary)' }} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--c-border)' }}>
+        <button type="button" className="btn btn-ghost" onClick={onCancel} style={{ padding: '10px 20px' }}>Cancel</button>
+        <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ padding: '10px 24px', fontWeight: 600 }}>
           {isSubmitting ? <Spinner size={14} /> : initial ? 'Update Role' : 'Create Role'}
         </button>
       </div>
@@ -95,42 +104,44 @@ function RoleCard({ role, onEdit, onDelete, isSystem }) {
     : 0
   const totalPerms = PERMISSION_GROUPS.length * ACTIONS.length
   const pct = Math.round((grantedCount / totalPerms) * 100)
+  
+  const roleColor = role.color || ROLE_COLORS[role.name] || 'var(--c-primary)'
 
   return (
-    <div className="card" style={{ borderLeft: `3px solid ${role.color || ROLE_COLORS[role.name] || 'var(--accent)'}` }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+    <div className="card" style={{ padding: 24, borderTop: `4px solid ${roleColor}`, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, textTransform: 'capitalize', marginBottom: 4 }}>{role.name}</div>
-          {isSystem && <span style={{ fontSize: 10, background: 'var(--bg-3)', color: 'var(--text-3)', padding: '2px 6px', borderRadius: 4 }}>System Role</span>}
+          <div style={{ fontSize: 16, fontWeight: 700, textTransform: 'capitalize', color: 'var(--c-text)', marginBottom: 6 }}>{role.name}</div>
+          {isSystem && <span style={{ fontSize: 11, background: 'var(--c-surface2)', color: 'var(--c-text3)', padding: '4px 8px', borderRadius: 6, fontWeight: 600, letterSpacing: '0.02em' }}>System Role</span>}
         </div>
         {!isSystem && (
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button className="topbar-icon-btn" onClick={() => onEdit(role)} title="Edit"><Edit2 size={13} /></button>
-            <button className="topbar-icon-btn" style={{ color: 'var(--red)' }} onClick={() => onDelete(role.id)} title="Delete"><Trash2 size={13} /></button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn-icon-sm" onClick={() => onEdit(role)} title="Edit" style={{ background: 'var(--c-surface2)' }}><Edit2 size={14} /></button>
+            <button className="btn-icon-sm" style={{ color: 'var(--c-red)', background: 'var(--c-red-lt)' }} onClick={() => onDelete(role.id)} title="Delete"><Trash2 size={14} /></button>
           </div>
         )}
       </div>
 
       {/* Permission coverage bar */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-3)', marginBottom: 4 }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--c-text2)', fontWeight: 600, marginBottom: 8 }}>
           <span>Permission coverage</span>
-          <span>{pct}%</span>
+          <span style={{ color: 'var(--c-text)' }}>{pct}%</span>
         </div>
-        <div style={{ background: 'var(--bg-2)', borderRadius: 4, height: 5 }}>
-          <div style={{ height: '100%', borderRadius: 4, width: `${pct}%`, background: role.color || ROLE_COLORS[role.name] || 'var(--accent)', transition: 'width 0.4s ease' }} />
+        <div style={{ background: 'var(--c-surface2)', borderRadius: 8, height: 6, overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 8, width: `${pct}%`, background: roleColor, transition: 'width 0.4s ease' }} />
         </div>
       </div>
 
       {/* Permission grid */}
       {role.permissions && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 4, marginTop: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginTop: 16 }}>
           {PERMISSION_GROUPS.slice(0, 6).map((group) => {
             const grp = role.permissions[group.key] || {}
             const granted = Object.values(grp).filter(Boolean).length
             return (
-              <div key={group.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: granted > 0 ? 'var(--text-2)' : 'var(--text-3)' }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: granted > 0 ? (role.color || 'var(--accent)') : 'var(--border)' }} />
+              <div key={group.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, color: granted > 0 ? 'var(--c-text)' : 'var(--c-text3)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: granted > 0 ? roleColor : 'var(--c-border)' }} />
                 {group.label}
               </div>
             )
@@ -170,30 +181,30 @@ export default function RolesPage() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 24 }}>
         <div className="page-header-left">
           <h1>Roles & Permissions</h1>
           <p>{SYSTEM_ROLES.length} system roles · {customRoles.length} custom roles</p>
         </div>
         <div className="page-header-right">
           {(user?.role === 'owner' || user?.role === 'admin') && (
-            <button className="btn btn-primary" onClick={() => { setEditing(null); setFormOpen(true) }}>
-              <Plus size={14} /> New Role
+            <button className="btn btn-primary" onClick={() => { setEditing(null); setFormOpen(true) }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}>
+              <Plus size={15} /> New Role
             </button>
           )}
         </div>
       </div>
 
-      <div className="tabs" style={{ maxWidth: 360 }}>
+      <div className="tabs" style={{ maxWidth: 360, marginBottom: 24 }}>
         {['roles', 'team'].map((t) => (
           <button key={t} className={`tab-btn${activeTab === t ? ' active' : ''}`} onClick={() => setActiveTab(t)} style={{ textTransform: 'capitalize' }}>
-            {t === 'roles' ? `Roles (${allRoles.length})` : `Team (${team.length})`}
+            {t === 'roles' ? `Roles (${allRoles.length})` : `Team (${team.length || 0})`}
           </button>
         ))}
       </div>
 
       {activeTab === 'roles' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
           {allRoles.map((role) => (
             <RoleCard
               key={role.id}
@@ -223,18 +234,18 @@ export default function RolesPage() {
                 {team.map((m) => (
                   <tr key={m.id}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: `${ROLE_COLORS[m.role] || 'var(--accent)'}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: ROLE_COLORS[m.role] || 'var(--accent)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${ROLE_COLORS[m.role] || 'var(--c-primary)'}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: ROLE_COLORS[m.role] || 'var(--c-primary)' }}>
                           {m.name?.charAt(0).toUpperCase()}
                         </div>
-                        <span style={{ fontWeight: 600 }}>{m.name}</span>
-                        {m.id === user?.id && <span style={{ fontSize: 10, color: 'var(--accent)' }}>(you)</span>}
+                        <span style={{ fontWeight: 600, color: 'var(--c-text)' }}>{m.name}</span>
+                        {m.id === user?.id && <span style={{ fontSize: 11, color: 'var(--c-primary)', background: 'var(--c-blue-lt)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>(You)</span>}
                       </div>
                     </td>
-                    <td style={{ color: 'var(--text-2)' }}>{m.email}</td>
+                    <td style={{ color: 'var(--c-text2)', fontWeight: 500 }}>{m.email}</td>
                     <td><Badge status={m.role} /></td>
                     <td><Badge status={m.is_active ? 'active' : 'inactive'} /></td>
-                    <td style={{ color: 'var(--text-3)', fontSize: 12 }}>{new Date(m.created_at).toLocaleDateString('en-IN')}</td>
+                    <td style={{ color: 'var(--c-text3)', fontSize: 13, fontWeight: 500 }}>{new Date(m.created_at).toLocaleDateString('en-IN')}</td>
                   </tr>
                 ))}
               </tbody>
