@@ -42,12 +42,10 @@ export default function VendorsPage() {
         </div>
       </div>
       <div className="card">
-        <div className="inv-filter-bar">
-          <div className="inv-filter-left">
-            <div className="inv-search-wrap">
-              <Search className="inv-search-icon" />
-              <input className="inv-search-input" placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
+        <div className="card-header" style={{ borderBottom: '1px solid var(--c-border)' }}>
+          <div className="search-wrap" style={{ width: 320 }}>
+            <Search className="search-icon" />
+            <input className="form-input" placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </div>
         {filtered.length === 0 ? (
@@ -58,31 +56,37 @@ export default function VendorsPage() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Vendor</th><th>Contact</th><th>GSTIN</th><th>Bank / IFSC</th><th>Status</th><th style={{ width: 80 }}></th></tr>
+                <tr>
+                  <th>Vendor</th>
+                  <th>Contact Information</th>
+                  <th>GSTIN / Tax</th>
+                  <th>Bank Details</th>
+                  <th>Status</th>
+                  <th className="right">Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {filtered.map((v) => (
-                  <tr key={v.id}>
+                  <tr key={v.id} onClick={() => navigate(`/vendors/${v.id}`)} style={{ cursor: 'pointer' }}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{v.name}</div>
-                      {v.company_name && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{v.company_name}</div>}
+                      <div style={{ fontWeight: 700, color: 'var(--c-text)' }}>{v.name}</div>
+                      {v.company_name && <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>{v.company_name}</div>}
                     </td>
                     <td>
-                      <div>{v.contact_person || '—'}</div>
-                      {v.email && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{v.email}</div>}
-                      {v.phone && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{v.phone}</div>}
+                      <div style={{ fontWeight: 500 }}>{v.contact_person || '—'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{v.email || v.phone || 'No contact info'}</div>
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{v.gstin || '—'}</td>
-                    <td style={{ fontSize: 12 }}>
-                      {v.bank_account ? <div>{v.bank_account}</div> : '—'}
-                      {v.ifsc && <div style={{ color: 'var(--text-2)' }}>{v.ifsc}</div>}
+                    <td className="mono" style={{ fontSize: 12, color: 'var(--c-primary)' }}>{v.gstin || '—'}</td>
+                    <td>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{v.bank_account || '—'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase' }}>{v.ifsc || ''}</div>
                     </td>
                     <td><Badge status={v.status} /></td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="topbar-icon-btn" title="View" onClick={() => navigate(`/vendors/${v.id}`)}><Eye size={14} /></button>
-                        <button className="topbar-icon-btn" title="Edit" onClick={() => { setEditing(v); setFormOpen(true) }}><Edit2 size={14} /></button>
-                        <button className="topbar-icon-btn" style={{ color: 'var(--red)' }} onClick={() => window.confirm(`Delete "${v.name}"?`) && deleteMut.mutate(v.id)}><Trash2 size={14} /></button>
+                    <td className="right" onClick={(e) => e.stopPropagation()}>
+                      <div className="tbl-actions" style={{ justifyContent: 'flex-end' }}>
+                        <button className="topbar-icon-btn" title="View Profile" onClick={() => navigate(`/vendors/${v.id}`)}><Eye size={14} /></button>
+                        <button className="topbar-icon-btn" title="Edit Vendor" onClick={() => { setEditing(v); setFormOpen(true) }}><Edit2 size={14} /></button>
+                        <button className="topbar-icon-btn" style={{ color: 'var(--c-red)' }} onClick={() => window.confirm(`Delete "${v.name}"?`) && deleteMut.mutate(v.id)}><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

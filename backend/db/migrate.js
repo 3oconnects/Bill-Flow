@@ -57,7 +57,8 @@ async function runMigrations() {
 
   } catch (err) {
     console.error('❌ Migration failed!');
-    console.error('Error:', err.message);
+    console.error('Error Details:');
+    console.error(err);
     if (err.detail) console.error('Detail:', err.detail);
     if (err.hint) console.error('Hint:', err.hint);
     process.exit(1);

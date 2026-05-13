@@ -71,76 +71,90 @@ export default function VendorProfile() {
   const totalProducts = products.length
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-        <button className="topbar-icon-btn" onClick={() => navigate('/vendors')}><ArrowLeft size={18} /></button>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700 }}>{v.name}</h1>
-          <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 2 }}>
-            {v.company_name && `${v.company_name} · `}{v.city && `${v.city}, `}{v.state}
+    <div className="page-enter">
+      <div className="page-header">
+        <div className="page-header-left">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button className="topbar-icon-btn" onClick={() => navigate('/vendors')}><ArrowLeft size={18} /></button>
+            <div>
+              <h1>{v.name}</h1>
+              <p>{v.company_name || 'Vendor Profile'} · {v.city || v.state || 'Location not set'}</p>
+            </div>
           </div>
         </div>
-        <Badge status={v.status} />
-        <button className="btn btn-ghost" onClick={() => setEditOpen(true)}><Edit2 size={14} /> Edit</button>
+        <div className="page-header-right" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Badge status={v.status} />
+          <button className="btn btn-secondary" onClick={() => setEditOpen(true)}><Edit2 size={14} /> Edit Vendor</button>
+        </div>
       </div>
 
       {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
-        {[
-          { label: 'Total Purchases', value: fmt.currency(totalExpenses), color: 'var(--red)' },
-          { label: 'Products Supplied', value: totalProducts, color: 'var(--accent)' },
-          { label: 'Documents', value: docs.length, color: 'var(--blue)' },
-        ].map((k) => (
-          <div key={k.label} className="card">
-            <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 6 }}>{k.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: k.color }}>{k.value}</div>
-          </div>
-        ))}
+      <div className="kpi-grid">
+        <div className="kpi-card red">
+          <div className="kpi-label">Total Purchases</div>
+          <div className="kpi-value">{fmt.currency(totalExpenses)}</div>
+          <div className="kpi-sub">{expenses.length} expense entries</div>
+        </div>
+        <div className="kpi-card blue">
+          <div className="kpi-label">Products Supplied</div>
+          <div className="kpi-value">{totalProducts}</div>
+          <div className="kpi-sub">linked products</div>
+        </div>
+        <div className="kpi-card purple">
+          <div className="kpi-label">Documents</div>
+          <div className="kpi-value">{docs.length}</div>
+          <div className="kpi-sub">verified uploads</div>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16 }}>
-        {/* Left Card */}
-        <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24, alignItems: 'start' }}>
+        {/* Left Column: Essential Info */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="card">
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 20, borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'white', marginBottom: 10 }}>
-                {fmt.initials(v.name)}
+            <div className="card-body">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingBottom: 20, borderBottom: '1px solid var(--c-border)', marginBottom: 16 }}>
+                <div className="vendor-avatar-lg">
+                  {fmt.initials(v.name)}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{v.name}</div>
+                {v.company_name && <div style={{ fontSize: 12, color: 'var(--c-text3)', fontWeight: 500, marginTop: 2 }}>{v.company_name}</div>}
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>{v.name}</div>
-              {v.company_name && <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{v.company_name}</div>}
-              <div style={{ marginTop: 8 }}><Badge status={v.status} /></div>
+
+              <div className="section-title">Primary Contact</div>
+              {[
+                ['Contact', v.contact_person], ['Email', v.email], ['Phone', v.phone],
+              ].filter(([, val]) => val).map(([label, val]) => (
+                <div key={label} className="vendor-meta-row">
+                  <span className="vendor-meta-label">{label}</span>
+                  <span className="vendor-meta-value">{val}</span>
+                </div>
+              ))}
+
+              <div className="section-title" style={{ marginTop: 20 }}>Tax & Identity</div>
+              {[
+                ['GSTIN', v.gstin], ['PAN', v.pan],
+              ].filter(([, val]) => val).map(([label, val]) => (
+                <div key={label} className="vendor-meta-row">
+                  <span className="vendor-meta-label">{label}</span>
+                  <span className="vendor-meta-value mono" style={{ color: 'var(--c-primary)', fontWeight: 600 }}>{val}</span>
+                </div>
+              ))}
             </div>
+          </div>
 
-            {[
-              ['Contact', v.contact_person], ['Email', v.email], ['Phone', v.phone],
-              ['GSTIN', v.gstin], ['PAN', v.pan],
-              ['City', v.city], ['State', v.state], ['Pincode', v.pincode],
-            ].filter(([, val]) => val).map(([label, val]) => (
-              <div key={label} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-                <span style={{ color: 'var(--text-3)', width: 80, flexShrink: 0 }}>{label}</span>
-                <span>{val}</span>
-              </div>
-            ))}
-
-            {(v.bank_account || v.ifsc) && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Banking</div>
-                {[
-                  ['Bank', v.bank_name], ['Account', v.bank_account], ['IFSC', v.ifsc], ['Branch', v.bank_branch],
-                ].filter(([, val]) => val).map(([label, val]) => (
-                  <div key={label} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-                    <span style={{ color: 'var(--text-3)', width: 80, flexShrink: 0 }}>{label}</span>
-                    <span style={{ fontFamily: label === 'Account' || label === 'IFSC' ? 'monospace' : 'inherit' }}>{val}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {v.notes && (
-              <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-2)', borderRadius: 8, fontSize: 12, color: 'var(--text-2)', lineHeight: 1.6 }}>
-                {v.notes}
-              </div>
-            )}
+          <div className="card">
+            <div className="card-body">
+              <div className="section-title">Banking Details</div>
+              {[
+                ['Bank', v.bank_name], ['Account', v.bank_account], ['IFSC', v.ifsc],
+              ].filter(([, val]) => val).map(([label, val]) => (
+                <div key={label} className="vendor-meta-row">
+                  <span className="vendor-meta-label">{label}</span>
+                  <span className="vendor-meta-value" style={{ fontWeight: label === 'Bank' ? 600 : 400 }}>{val}</span>
+                </div>
+              ))}
+              {!v.bank_account && <div style={{ fontSize: 12, color: 'var(--c-text3)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No banking info provided</div>}
+            </div>
           </div>
         </div>
 

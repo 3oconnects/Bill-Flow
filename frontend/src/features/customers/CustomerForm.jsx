@@ -16,79 +16,89 @@ export default function CustomerForm({ initial, onSuccess, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit((d) => mutation.mutate(d))}>
-      <div className="form-row cols-2">
-        <div className="form-group">
-          <label className="form-label">Name *</label>
-          <input className="form-input" {...register('name', { required: 'Required' })} placeholder="Customer name" />
-          {errors.name && <div className="form-err">{errors.name.message}</div>}
-        </div>
-        <div className="form-group">
-          <label className="form-label">Email</label>
-          <input className="form-input" type="email" {...register('email')} placeholder="email@example.com" />
-        </div>
-      </div>
+      <div className="po-form-standard">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 32 }}>
+          {/* Left Column: Primary & Contact */}
+          <div className="form-section-compact">
+            <div className="form-group-row">
+              <label>Name *</label>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <input className="form-input sm" {...register('name', { required: 'Required' })} placeholder="Customer name" />
+                {errors.name && <div className="form-err">{errors.name.message}</div>}
+              </div>
+            </div>
+            <div className="form-group-row">
+              <label>Email Address</label>
+              <input className="form-input sm" type="email" {...register('email')} placeholder="email@example.com" />
+            </div>
+            <div className="form-group-row">
+              <label>Phone Number</label>
+              <input className="form-input sm" {...register('phone')} placeholder="+91 98765 43210" />
+            </div>
+            <div className="form-group-row">
+              <label>Currency</label>
+              <select className="form-select sm" {...register('currency')}>
+                <option value="INR">INR (₹)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
+            </div>
+          </div>
 
-      <div className="form-row cols-2">
-        <div className="form-group">
-          <label className="form-label">Phone</label>
-          <input className="form-input" {...register('phone')} placeholder="+91 98765 43210" />
+          {/* Right Column: Tax & Limit */}
+          <div className="form-section-compact">
+            <div className="form-group-row">
+              <label>GSTIN / Tax ID</label>
+              <input className="form-input sm mono" {...register('gstin')} placeholder="22AAAAA0000A1Z5" />
+            </div>
+            <div className="form-group-row">
+              <label>PAN Number</label>
+              <input className="form-input sm mono" {...register('pan')} placeholder="AAAAA9999A" />
+            </div>
+            <div className="form-group-row">
+              <label>State / Region</label>
+              <select className="form-select sm" {...register('state')}>
+                <option value="">Select state</option>
+                {STATES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="form-group-row">
+              <label>Credit Limit</label>
+              <input className="form-input sm" type="number" {...register('credit_limit')} placeholder="0" />
+            </div>
+          </div>
         </div>
-        <div className="form-group">
-          <label className="form-label">GSTIN</label>
-          <input className="form-input" {...register('gstin')} placeholder="22AAAAA0000A1Z5" />
-        </div>
-      </div>
 
-      <div className="form-row cols-2">
-        <div className="form-group">
-          <label className="form-label">PAN</label>
-          <input className="form-input" {...register('pan')} placeholder="AAAAA9999A" />
+        {/* Bottom Section: Location & Notes */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 24 }}>
+          <div className="form-section-compact">
+            <div className="form-group-row">
+              <label>City</label>
+              <input className="form-input sm" {...register('city')} placeholder="Chennai" />
+            </div>
+            <div className="form-group-row">
+              <label>Pincode</label>
+              <input className="form-input sm" {...register('pincode')} placeholder="600001" />
+            </div>
+          </div>
+          <div className="form-section-compact">
+            <div className="form-group-row" style={{ alignItems: 'flex-start' }}>
+              <label style={{ marginTop: 8 }}>Full Address</label>
+              <textarea className="form-input sm" {...register('address')} placeholder="Billing address" rows={2}></textarea>
+            </div>
+            <div className="form-group-row" style={{ alignItems: 'flex-start' }}>
+              <label style={{ marginTop: 8 }}>Notes</label>
+              <textarea className="form-input sm" {...register('notes')} placeholder="Internal notes" rows={2}></textarea>
+            </div>
+          </div>
         </div>
-        <div className="form-group">
-          <label className="form-label">State</label>
-          <select className="form-select" {...register('state')}>
-            <option value="">Select state</option>
-            {STATES.map((s) => <option key={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
 
-      <div className="form-row cols-3">
-        <div className="form-group">
-          <label className="form-label">City</label>
-          <input className="form-input" {...register('city')} placeholder="Chennai" />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', borderTop: '1px solid var(--c-border)', paddingTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? <Spinner size={14} /> : initial ? 'Update Customer' : 'Create Customer'}
+          </button>
         </div>
-        <div className="form-group">
-          <label className="form-label">Pincode</label>
-          <input className="form-input" {...register('pincode')} placeholder="600001" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Currency</label>
-          <select className="form-select" {...register('currency')}>
-            <option value="INR">INR</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label className="form-label">Credit Limit (₹)</label>
-        <input className="form-input" type="number" {...register('credit_limit')} placeholder="0" />
-      </div>
-      <div className="form-group">
-        <label className="form-label">Address</label>
-        <textarea className="form-textarea" {...register('address')} placeholder="Full address" rows={2} />
-      </div>
-      <div className="form-group">
-        <label className="form-label">Notes</label>
-        <textarea className="form-textarea" {...register('notes')} placeholder="Internal notes" rows={2} />
-      </div>
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-          {isSubmitting ? <Spinner size={14} /> : initial ? 'Update Customer' : 'Create Customer'}
-        </button>
       </div>
     </form>
   )
