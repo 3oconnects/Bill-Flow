@@ -62,3 +62,120 @@ router.get('/chart', requireAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+// Aged Receivables
+router.get('/aged-receivables', requireAuth, async (req, res) => {
+  try {
+    const rows = await stmts.getAgedReceivables.all(req.orgId);
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Aged receivables error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// P&L Statement
+router.get('/pl-statement', requireAuth, async (req, res) => {
+  try {
+    const [revenue, expenses] = await Promise.all([
+      stmts.getPLByMonth.all(req.orgId),
+      stmts.getPLExpensesByMonth.all(req.orgId),
+    ]);
+    sendSuccess(res, { revenue, expenses });
+  } catch (err) {
+    console.error('P&L error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Cash Flow
+router.get('/cash-flow', requireAuth, async (req, res) => {
+  try {
+    const [inflows, outflows] = await Promise.all([
+      stmts.getCashFlowInflows.all(req.orgId),
+      stmts.getCashFlowOutflows.all(req.orgId),
+    ]);
+    sendSuccess(res, { inflows, outflows });
+  } catch (err) {
+    console.error('Cash flow error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// GST Summary
+router.get('/gst-summary', requireAuth, async (req, res) => {
+  try {
+    const [collected, paid] = await Promise.all([
+      stmts.getGSTCollected.all(req.orgId),
+      stmts.getGSTPaid.all(req.orgId),
+    ]);
+    sendSuccess(res, { collected, paid });
+  } catch (err) {
+    console.error('GST summary error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Expense Analytics
+router.get('/expense-analytics', requireAuth, async (req, res) => {
+  try {
+    const [topVendors, trend, byCategory] = await Promise.all([
+      stmts.getTopVendorsByExpense.all(req.orgId),
+      stmts.getExpenseTrend.all(req.orgId),
+      stmts.getExpenseMonthVsCategory.all(req.orgId),
+    ]);
+    sendSuccess(res, { topVendors, trend, byCategory });
+  } catch (err) {
+    console.error('Expense analytics error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// A/P Aging
+router.get('/ap-aging', requireAuth, async (req, res) => {
+  try {
+    const rows = await stmts.getAPAging.all(req.orgId);
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('AP aging error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Balance Sheet
+router.get('/balance-sheet', requireAuth, async (req, res) => {
+  try {
+    const [assets, liabilities] = await Promise.all([
+      stmts.getBalanceSheetAssets.get(req.orgId),
+      stmts.getBalanceSheetLiabilities.get(req.orgId, req.orgId),
+    ]);
+    sendSuccess(res, { assets, liabilities });
+  } catch (err) {
+    console.error('Balance sheet error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Trial Balance
+router.get('/trial-balance', requireAuth, async (req, res) => {
+  try {
+    const rows = await stmts.getTrialBalance.all(
+      req.orgId, req.orgId, req.orgId, req.orgId, req.orgId, req.orgId
+    );
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Trial balance error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Cash Ledger
+router.get('/cash-ledger', requireAuth, async (req, res) => {
+  try {
+    const rows = await stmts.getCashLedger.all(req.orgId, req.orgId);
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Cash ledger error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});

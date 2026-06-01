@@ -76,7 +76,19 @@ export const productsApi = {
   create:        (data)          => api.post('/products', data),
   update:        (id, data)      => api.put(`/products/${id}`, data),
   remove:        (id)            => api.delete(`/products/${id}`),
-  adjustStock:   (id, delta)     => api.patch(`/products/${id}/stock`, { delta }),
+  adjustStock:    (id, data)      => api.patch(`/products/${id}/stock`, data),
+  clone:          (id)            => api.post(`/products/${id}/clone`),
+  exportCsvUrl:   ()              => `/api/products/export/csv`,
+  getStockHistory:(id)            => api.get(`/products/${id}/stock-history`),
+  getSalesHistory:(id)            => api.get(`/products/${id}/sales-history`),
+  getPriceLists:  (id)            => api.get(`/products/${id}/price-lists`),
+  addPriceList:   (id, data)      => api.post(`/products/${id}/price-lists`, data),
+  updatePriceList:(id, plId, d)   => api.put(`/products/${id}/price-lists/${plId}`, d),
+  removePriceList:(id, plId)      => api.delete(`/products/${id}/price-lists/${plId}`),
+  getCategories:  ()              => api.get(`/products/categories/list`),
+  createCategory: (data)          => api.post(`/products/categories/list`, data),
+  updateCategory: (catId, data)   => api.put(`/products/categories/${catId}`, data),
+  removeCategory: (catId)         => api.delete(`/products/categories/${catId}`),
   bulk:          (products)      => api.post('/products/bulk', { products }),
   getVendors:    (id)            => api.get(`/products/${id}/vendors`),
   addVendor:     (id, data)      => api.post(`/products/${id}/vendors`, data),
@@ -112,7 +124,16 @@ export const expensesApi = {
 
 // ── Reports ──────────────────────────────────────
 export const reportsApi = {
-  summary: ()                      => api.get('/reports/summary'),
+  summary:          ()              => api.get('/reports/summary'),
+  agedReceivables: ()              => api.get('/reports/aged-receivables'),
+  plStatement:     ()              => api.get('/reports/pl-statement'),
+  cashFlow:        ()              => api.get('/reports/cash-flow'),
+  gstSummary:      ()              => api.get('/reports/gst-summary'),
+  expenseAnalytics:()              => api.get('/reports/expense-analytics'),
+  apAging:         ()              => api.get('/reports/ap-aging'),
+  balanceSheet:    ()              => api.get('/reports/balance-sheet'),
+  trialBalance:    ()              => api.get('/reports/trial-balance'),
+  cashLedger:      ()              => api.get('/reports/cash-ledger'),
   chart:   (mode, from, to)        => {
     let url = `/reports/chart?mode=${mode}`
     if (from && to) url += `&from=${from}&to=${to}`
@@ -126,6 +147,34 @@ export const warrantyApi = {
   create:       (data)                => api.post('/warranty-claims', data),
   updateStatus: (id, status, notes)   => api.patch(`/warranty-claims/${id}/status`, { status, notes }),
   remove:       (id)                  => api.delete(`/warranty-claims/${id}`),
+}
+
+// ── Goods Returns ─────────────────────────────────
+export const goodsReturnsApi = {
+  stats:      ()               => api.get('/goods-returns/stats'),
+  list:       (params = {})    => api.get('/goods-returns', { params }),
+  get:        (id)             => api.get(`/goods-returns/${id}`),
+  create:     (data)           => api.post('/goods-returns', data),
+  update:     (id, data)       => api.put(`/goods-returns/${id}`, data),
+  submit:     (id, note)       => api.patch(`/goods-returns/${id}/submit`, { note }),
+  approve:    (id, note)       => api.patch(`/goods-returns/${id}/approve`, { note }),
+  process:    (id, note)       => api.patch(`/goods-returns/${id}/process`, { note }),
+  close:      (id, note)       => api.patch(`/goods-returns/${id}/close`, { note }),
+  creditNote: (id)             => api.patch(`/goods-returns/${id}/credit-note`),
+  cancel:     (id, reason)     => api.delete(`/goods-returns/${id}`, { data: { reason } }),
+  report:     (type, from, to) => api.get(`/goods-returns/reports/${type}`, { params: { from, to } }),
+}
+
+// ── Accounts Payable ──────────────────────────────────
+// type: 'invoices' | 'down-payments' | 'credit-memos' | 'reserve-invoices'
+export const apApi = {
+  stats:        (type)              => api.get(`/ap/${type}/stats`),
+  list:         (type, params = {}) => api.get(`/ap/${type}`, { params }),
+  get:          (type, id)          => api.get(`/ap/${type}/${id}`),
+  create:       (type, data)        => api.post(`/ap/${type}`, data),
+  update:       (type, id, data)    => api.put(`/ap/${type}/${id}`, data),
+  updateStatus: (type, id, body)    => api.patch(`/ap/${type}/${id}/status`, body),
+  cancel:       (type, id, reason)  => api.delete(`/ap/${type}/${id}`, { data: { reason } }),
 }
 
 export default api

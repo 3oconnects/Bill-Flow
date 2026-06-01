@@ -5,18 +5,18 @@ const authStmts = require('./statements/auth');
 const salesStmts = require('./statements/sales');
 const inventoryStmts = require('./statements/inventory');
 const reportStmts = require('./statements/reports');
-
-// Schema is now managed via migrations (node backend/db/migrate.js)
-// We don't need to run initSchema on every startup.
+const goodsReturnsStmts = require('./statements/goodsReturns');
+const apStmts           = require('./statements/ap');
 
 const stmts = {
   ...authStmts,
   ...salesStmts,
   ...inventoryStmts,
-  ...reportStmts
+  ...reportStmts,
+  ...goodsReturnsStmts,
+  ...apStmts,
 };
 
-// Clean expired sessions periodically
 setInterval(async () => {
   try {
     await stmts.cleanSessions.run();

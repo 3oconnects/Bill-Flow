@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Eye, Edit2, Trash2, Package, UploadCloud, Scan, Shield, AlertCircle, XCircle, Grid, List } from 'lucide-react'
+import { Plus, Search, Eye, Edit2, Trash2, Package, UploadCloud, Scan, Shield, AlertCircle, XCircle, Grid, List, Copy, Download, Tag, ShoppingCart, MoreHorizontal } from 'lucide-react'
+import { useTopbarStore } from '@/store/topbarStore'
 import { productsApi } from '@/api'
 import { fmt } from '@/lib/utils'
 import { PageLoading, EmptyState, Badge } from '@/components/ui'
@@ -9,6 +10,7 @@ import { toast } from '@/store/toastStore'
 import Modal from '@/components/Modal'
 import ProductForm from './ProductForm'
 import BulkUpload from './BulkUpload'
+import CategoryManager from './CategoryManager'
 
 export default function ProductsPage() {
   const qc = useQueryClient()
@@ -23,9 +25,57 @@ export default function ProductsPage() {
   const [scanOpen, setScanOpen] = useState(false)
   const [scanInput, setScanInput] = useState('')
 
+  const [catManagerOpen, setCatManagerOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef(null)
+  const { setActions, setContext, clear } = useTopbarStore()
+
+  useEffect(() => {
+    setContext('Products', 'Inventory Catalogue')
+    setActions(
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        {/* More dropdown */}
+        <div style={{ position: 'relative' }} ref={moreRef}>
+          <button
+            className="btn btn-ghost"
+            style={{ border: '1px solid var(--c-border)', borderRadius: 8, padding: '8px 14px', gap: 6 }}
+            onClick={() => setMoreOpen(o => !o)}
+          >
+            <MoreHorizontal size={16} /> More
+          </button>
+        </div>
+        <button className="btn btn-ghost"
+          style={{ border: '1px solid var(--c-border)', borderRadius: 8, padding: '8px 16px', fontWeight: 600 }}
+          onClick={() => setBulkOpen(true)}>
+          <UploadCloud size={15} /> Bulk Upload
+        </button>
+        <button className="btn btn-primary"
+          style={{ borderRadius: 8, padding: '8px 18px', fontWeight: 600 }}
+          onClick={() => { setEditing(null); setFormOpen(true) }}>
+          <Plus size={15} /> Add Product
+        </button>
+      </div>
+    )
+    return clear
+  }, [setActions, setContext, clear])
+  const [lowStockPrompt, setLowStockPrompt] = useState(null)
+
+  const handleExport = () => {
+    const a = document.createElement('a')
+    a.href = '/api/products/export/csv'
+    a.download = 'products.csv'
+    a.click()
+  }
+
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: productsApi.list,
+  })
+
+  const cloneMut = useMutation({
+    mutationFn: productsApi.clone,
+    onSuccess: () => { qc.invalidateQueries(['products']); toast.success('Product cloned') },
+    onError: (e) => toast.error(e.message),
   })
 
   const deleteMut = useMutation({
@@ -55,22 +105,32 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <div className="page-header-left">
-          <h1>Products</h1>
-        </div>
-        <div className="page-header-right" style={{ gap: 12 }}>
-          <button className="btn btn-ghost" onClick={() => { setScanInput(''); setScanOpen(true) }} style={{ background: 'white', border: '1px solid var(--c-border)', borderRadius: 8, padding: '8px 16px', color: 'var(--c-text2)', fontWeight: 600 }}>
-            <Scan size={15} /> Scan Product
-          </button>
-          <button className="btn btn-ghost" onClick={() => { setEditing(null); setFormOpen(true) }} style={{ background: 'white', border: '1px solid var(--c-border)', borderRadius: 8, padding: '8px 16px', color: 'var(--c-text2)', fontWeight: 600 }}>
-            <Plus size={15} /> Add Product
-          </button>
-          <button className="btn btn-primary" onClick={() => setBulkOpen(true)} style={{ borderRadius: 8, padding: '8px 16px', fontWeight: 600 }}>
-            <UploadCloud size={15} /> Bulk Upload
-          </button>
-        </div>
-      </div>
+      {/* More dropdown portal */}
+      {moreOpen && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setMoreOpen(false)} />
+          <div style={{
+            position: 'fixed', top: 56, right: 24, zIndex: 200,
+            background: 'var(--c-surface)', border: '1px solid var(--c-border)',
+            borderRadius: 10, boxShadow: 'var(--shadow-md)', minWidth: 200, overflow: 'hidden',
+          }}>
+            {[
+              { icon: Scan,     label: 'Scan Product',     onClick: () => { setScanInput(''); setScanOpen(true) } },
+              { icon: Download, label: 'Export CSV',        onClick: handleExport },
+              { icon: Tag,      label: 'Manage Categories', onClick: () => setCatManagerOpen(true) },
+            ].map(item => (
+              <button key={item.label}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--c-text)', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--c-surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                onClick={() => { item.onClick(); setMoreOpen(false) }}
+              >
+                <item.icon size={15} color="var(--c-text3)" /> {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* KPI Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
@@ -198,6 +258,14 @@ export default function ProductsPage() {
                           <button className="topbar-icon-btn" title="Edit" onClick={() => { setEditing(p); setFormOpen(true) }}>
                             <Edit2 size={14} />
                           </button>
+                          <button className="topbar-icon-btn" title="Clone" onClick={() => cloneMut.mutate(p.id)}>
+                            <Copy size={14} />
+                          </button>
+                          {isLow && (
+                            <button className="topbar-icon-btn" title="Reorder — create PO" style={{ color: 'var(--c-orange)' }} onClick={() => setLowStockPrompt(p)}>
+                              <ShoppingCart size={14} />
+                            </button>
+                          )}
                           <button className="topbar-icon-btn" title="Delete" onClick={() => window.confirm(`Delete "${p.name}"?`) && deleteMut.mutate(p.id)} style={{ color: 'var(--red)' }}>
                             <Trash2 size={14} />
                           </button>
@@ -214,24 +282,29 @@ export default function ProductsPage() {
             {filtered.map(p => {
               const isLow = Number(p.stock_qty) <= Number(p.low_stock_alert)
               return (
-                <div key={p.id} className="card" onClick={() => navigate(`/products/${p.id}`)} style={{ padding: 16, cursor: 'pointer', transition: 'box-shadow 0.2s', border: '1px solid var(--c-border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <div style={{ background: 'var(--c-surface2)', borderRadius: 8, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Package size={20} color="var(--c-text2)" />
+                <div key={p.id} className="card" style={{ padding: 16, border: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, cursor: 'pointer' }} onClick={() => navigate(`/products/${p.id}`)}>
+                    <div style={{ background: 'var(--c-surface2)', borderRadius: 8, width: 44, height: 44, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display='none' }} /> : <Package size={20} color="var(--c-text2)" />}
                     </div>
                     <Badge status={p.is_active ? 'active' : 'inactive'} />
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--c-text2)', fontFamily: 'monospace', marginBottom: 12 }}>{p.sku || 'No SKU'}</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2, cursor: 'pointer' }} onClick={() => navigate(`/products/${p.id}`)}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--c-text3)', fontFamily: 'monospace', marginBottom: 8 }}>{p.sku || 'No SKU'}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', marginBottom: 2 }}>Stock</div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: isLow ? 'var(--red)' : 'var(--c-text)' }}>{fmt.number(p.stock_qty)}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', marginBottom: 1 }}>Stock</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isLow ? 'var(--c-danger)' : 'var(--c-text)' }}>{fmt.number(p.stock_qty)} {p.unit}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', marginBottom: 2 }}>Price</div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--c-primary)' }}>{fmt.currency(p.unit_price)}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', marginBottom: 1 }}>Price</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-primary)' }}>{fmt.currency(p.unit_price)}</div>
                     </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, borderTop: '1px solid var(--c-border)', paddingTop: 10 }}>
+                    <button className="topbar-icon-btn" title="Edit" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setEditing(p); setFormOpen(true) }}><Edit2 size={13} /></button>
+                    <button className="topbar-icon-btn" title="Clone" style={{ flex: 1, justifyContent: 'center' }} onClick={() => cloneMut.mutate(p.id)}><Copy size={13} /></button>
+                    <button className="topbar-icon-btn" title="Delete" style={{ flex: 1, justifyContent: 'center', color: 'var(--c-danger)' }} onClick={() => window.confirm(`Delete "${p.name}"?`) && deleteMut.mutate(p.id)}><Trash2 size={13} /></button>
                   </div>
                 </div>
               )
@@ -257,6 +330,37 @@ export default function ProductsPage() {
           />
         </Modal>
       )}
+      {/* Category Manager Modal */}
+      {catManagerOpen && (
+        <Modal title="Manage Categories" onClose={() => setCatManagerOpen(false)} size="md">
+          <CategoryManager onClose={() => setCatManagerOpen(false)} />
+        </Modal>
+      )}
+
+      {/* Low Stock Reorder Prompt */}
+      {lowStockPrompt && (
+        <Modal title="Reorder Stock" onClose={() => setLowStockPrompt(null)}>
+          <div style={{ padding: '0 4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fff7ed', borderRadius: 10, marginBottom: 20, border: '1px solid #fed7aa' }}>
+              <AlertCircle size={20} color="#f97316" />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c' }}>Low Stock Alert</div>
+                <div style={{ fontSize: 12, color: '#9a3412' }}><strong>{lowStockPrompt.name}</strong> — only {fmt.number(lowStockPrompt.stock_qty)} {lowStockPrompt.unit} left (threshold: {fmt.number(lowStockPrompt.low_stock_alert)})</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--c-text2)', marginBottom: 20, lineHeight: 1.6 }}>
+              Would you like to create a Purchase Order for this product? You can go to <strong>Purchase Management → Purchase Orders</strong> and create a new PO for this item.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setLowStockPrompt(null)}>Dismiss</button>
+              <button className="btn btn-primary" onClick={() => { setLowStockPrompt(null); navigate('/purchases') }}>
+                <ShoppingCart size={14} /> Go to Purchase Orders
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {scanOpen && (
         <Modal title="" onClose={() => setScanOpen(false)} size="md">
           <div className="scanner-modal" style={{ padding: '0 8px 8px' }}>

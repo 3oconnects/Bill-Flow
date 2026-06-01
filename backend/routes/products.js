@@ -83,128 +83,177 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
 router.patch('/:id/stock', requireAuth, async (req, res) => {
   try {
-    const { delta } = req.body;
+    const { delta, reason, note } = req.body;
     if (isNaN(delta)) return sendError(res, 'Invalid delta', 'VALIDATION_ERROR', 400);
+    const product = await stmts.getProduct.get(req.params.id, req.orgId);
+    if (!product) return sendError(res, 'Product not found', 'NOT_FOUND', 404);
+    const qty_before = Number(product.stock_qty);
+    const qty_after  = qty_before + Number(delta);
     await stmts.updateProductStock.run(delta, req.params.id, req.orgId);
-    sendSuccess(res, null);
+    await stmts.insertStockMovement.run(uuid(), req.orgId, req.params.id, 'adjustment', delta, qty_before, qty_after, reason||'manual', note||'', null, req.user.id);
+    sendSuccess(res, { qty_before, qty_after });
   } catch (err) {
     console.error('Update stock error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });
 
-// Product Vendors
-router.get('/:id/vendors', requireAuth, async (req, res) => {
+// Stock movement history
+router.get('/:id/stock-history', requireAuth, async (req, res) => {
   try {
-    const vendors = await stmts.getProductVendors.all(req.params.id, req.orgId);
-    sendSuccess(res, vendors);
+    const movements = await stmts.getStockMovements.all(req.orgId, req.params.id);
+    sendSuccess(res, movements);
   } catch (err) {
-    console.error('Get product vendors error:', err);
-    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
-  }
-});
-
-router.post('/:id/vendors', requireAuth, async (req, res) => {
-  try {
-    const { vendor_id, supply_price, is_primary, notes } = req.body;
-    if (!vendor_id) return sendError(res, 'vendor_id required', 'VALIDATION_ERROR', 400);
-    
-    const product = await db.prepare(`SELECT id FROM products WHERE id = ? AND org_id = ? AND deleted_at IS NULL`).get(req.params.id, req.orgId);
-    if (!product) return sendError(res, 'Product not found', 'NOT_FOUND', 404);
-    const vendor = await db.prepare(`SELECT id FROM vendors WHERE id = ? AND org_id = ? AND deleted_at IS NULL`).get(vendor_id, req.orgId);
-    if (!vendor) return sendError(res, 'Vendor not found', 'NOT_FOUND', 404);
-    
-    const existing = await db.prepare(`SELECT id FROM product_vendors WHERE product_id = ? AND vendor_id = ? AND org_id = ? AND deleted_at IS NULL`).get(req.params.id, vendor_id, req.orgId);
-    if (existing) return sendSuccess(res, { id: existing.id, duplicate: true });
-
-    const vid = uuid();
-    if (is_primary) await stmts.clearPrimaryVendor.run(req.params.id, req.orgId);
-    await stmts.insertProductVendor.run(vid, req.orgId, req.params.id, vendor_id, supply_price||0, is_primary?1:0, notes||'', req.user.id);
-    sendSuccess(res, { id: vid });
-  } catch (err) {
-    console.error('Add product vendor error:', err);
-    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
-  }
-});
-
-router.put('/:id/vendors/:pvid', requireAuth, async (req, res) => {
-  try {
-    const { supply_price, is_primary, notes } = req.body;
-    if (is_primary) await stmts.clearPrimaryVendor.run(req.params.id, req.orgId);
-    await stmts.updateProductVendor.run(supply_price||0, is_primary?1:0, notes||'', req.params.pvid, req.orgId);
-    sendSuccess(res, null);
-  } catch (err) {
-    console.error('Update product vendor error:', err);
-    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
-  }
-});
-
-router.delete('/:id/vendors/:pvid', requireAuth, async (req, res) => {
-  try {
-    await stmts.deleteProductVendor.run(req.params.pvid, req.orgId);
-    sendSuccess(res, null);
-  } catch (err) {
-    console.error('Delete product vendor error:', err);
-    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
-  }
-});
-
-router.post('/bulk', requireAuth, async (req, res) => {
-  try {
-    const { products } = req.body;
-    if (!Array.isArray(products)) return sendError(res, 'Invalid products array', 'VALIDATION_ERROR', 400);
-
-    let succeeded = 0;
-    let failed = 0;
-    const failedRows = [];
-
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i];
-      try {
-        const id = uuid();
-        const unique_id = uuid().split('-')[0].toUpperCase();
-        
-        // Ensure SKU is generated if empty
-        let sku = p.sku || '';
-        if (!sku) {
-          const brand = (p.brand || 'PROD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-          const prefix = `SKU-${brand}-`;
-          const rows = await db.prepare(`SELECT sku FROM products WHERE org_id = ? AND sku LIKE ? AND deleted_at IS NULL`).all(req.orgId, prefix + '%');
-          let maxSerial = 0;
-          rows.forEach(r => {
-            const parts = r.sku.split('-');
-            const serial = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(serial) && serial > maxSerial) maxSerial = serial;
-          });
-          sku = `${prefix}${String(maxSerial + 1).padStart(4, '0')}`;
-        }
-
-        await stmts.insertProduct.run(
-          id, req.orgId, unique_id, p.name, sku, p.hsn_code||'', p.description||'', 
-          p.category||'general', p.unit||'pcs', p.unit_price||0, p.purchase_price||0, 
-          p.tax_rate||18, p.stock_qty||0, p.low_stock_alert||5, p.image_url||'', 
-          p.brand||'', p.model_number||'', p.warranty_type||'none', 
-          parseInt(p.warranty_duration)||0, p.warranty_unit||'months', p.warranty_terms||'', 
-          p.guarantee_type||'none', parseInt(p.guarantee_duration)||0, 
-          p.guarantee_unit||'days', p.guarantee_terms||'', 1, req.user.id
-        );
-        succeeded++;
-      } catch (err) {
-        console.error(`Bulk upload failed for row ${i}:`, err);
-        failed++;
-        failedRows.push({
-          row: i + 1,
-          name: p.name,
-          error: err.message
-        });
-      }
+    if (err.message?.includes('does not exist') || err.message?.includes('no such table')) {
+      return sendSuccess(res, []); // migration not yet run
     }
-
-    sendSuccess(res, { succeeded, failed, failedRows });
-  } catch (err) {
-    console.error('Bulk upload error:', err);
+    console.error('Stock history error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });
 
-module.exports = router;
+// Sales history — invoices that included this product
+router.get('/:id/sales-history', requireAuth, async (req, res) => {
+  try {
+    const rows = await db.prepare(`
+      SELECT ii.id, ii.invoice_id, ii.quantity, ii.unit_price, ii.amount, ii.tax_rate, ii.tax_amount,
+             i.number as invoice_number, i.date as invoice_date, i.status as invoice_status,
+             c.name as customer_name
+      FROM invoice_items ii
+      JOIN invoices i ON ii.invoice_id = i.id AND i.org_id = ii.org_id
+      LEFT JOIN customers c ON i.customer_id = c.id
+      WHERE ii.product_id = ? AND ii.org_id = ? AND i.deleted_at IS NULL
+      ORDER BY i.date DESC
+      LIMIT 50
+    `).all(req.params.id, req.orgId);
+    sendSuccess(res, rows);
+  } catch (err) {
+    if (err.message?.includes('does not exist') || err.message?.includes('no such table')) {
+      return sendSuccess(res, []);
+    }
+    console.error('Sales history error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Clone product
+router.post('/:id/clone', requireAuth, async (req, res) => {
+  try {
+    const original = await stmts.getProduct.get(req.params.id, req.orgId);
+    if (!original) return sendError(res, 'Product not found', 'NOT_FOUND', 404);
+    const newId = uuid();
+    const unique_id = uuid().split('-')[0].toUpperCase();
+    const newSku = original.sku ? original.sku + '-COPY' : '';
+    await stmts.insertProduct.run(newId, req.orgId, unique_id, 'Copy of ' + original.name, newSku,
+      original.hsn_code, original.description, original.category, original.unit,
+      original.unit_price, original.purchase_price, original.tax_rate, 0,
+      original.low_stock_alert, original.image_url, original.brand, original.model_number,
+      original.warranty_type, original.warranty_duration, original.warranty_unit, original.warranty_terms,
+      original.guarantee_type, original.guarantee_duration, original.guarantee_unit, original.guarantee_terms,
+      1, req.user.id);
+    sendSuccess(res, { id: newId });
+  } catch (err) {
+    console.error('Clone product error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Export products as CSV data
+router.get('/export/csv', requireAuth, async (req, res) => {
+  try {
+    const products = await stmts.getProducts.all(req.orgId);
+    const headers = ['Name','SKU','Brand','Model Number','Category','Unit','Sell Price','Purchase Price','GST Rate','Stock Qty','Low Stock Alert','HSN Code','Status','Description'];
+    const rows = products.map(p => [
+      p.name, p.sku, p.brand, p.model_number, p.category, p.unit,
+      p.unit_price, p.purchase_price, p.tax_rate, p.stock_qty, p.low_stock_alert,
+      p.hsn_code, p.is_active ? 'Active' : 'Inactive', p.description
+    ].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="products.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error('Export error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Product categories
+router.get('/categories/list', requireAuth, async (req, res) => {
+  try {
+    const cats = await stmts.getProductCategories.all(req.orgId);
+    sendSuccess(res, cats);
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+router.post('/categories/list', requireAuth, async (req, res) => {
+  try {
+    const { name, color, sort_order } = req.body;
+    if (!name) return sendError(res, 'Name required', 'VALIDATION_ERROR', 400);
+    const id = uuid();
+    await stmts.insertProductCategory.run(id, req.orgId, name, color||'#6366f1', sort_order||0);
+    sendSuccess(res, { id });
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+router.put('/categories/:catId', requireAuth, async (req, res) => {
+  try {
+    const { name, color, sort_order } = req.body;
+    await stmts.updateProductCategory.run(name, color||'#6366f1', sort_order||0, req.params.catId, req.orgId);
+    sendSuccess(res, null);
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+router.delete('/categories/:catId', requireAuth, async (req, res) => {
+  try {
+    await stmts.deleteProductCategory.run(req.params.catId, req.orgId);
+    sendSuccess(res, null);
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Price lists
+router.get('/:id/price-lists', requireAuth, async (req, res) => {
+  try {
+    const lists = await stmts.getPriceLists.all(req.orgId, req.params.id);
+    sendSuccess(res, lists);
+  } catch (err) {
+    if (err.message?.includes('does not exist') || err.message?.includes('no such table')) return sendSuccess(res, []);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+router.post('/:id/price-lists', requireAuth, async (req, res) => {
+  try {
+    const { label, price, min_qty, currency } = req.body;
+    if (!label || isNaN(price)) return sendError(res, 'label and price required', 'VALIDATION_ERROR', 400);
+    const id = uuid();
+    await stmts.insertPriceList.run(id, req.orgId, req.params.id, label, price, min_qty||1, currency||'INR');
+    sendSuccess(res, { id });
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+router.put('/:id/price-lists/:plId', requireAuth, async (req, res) => {
+  try {
+    const { label, price, min_qty, currency } = req.body;
+    await stmts.updatePriceList.run(label, price, min_qty||1, currency||'INR', req.params.plId, req.orgId);
+    sendSuccess(res, null);
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+router.delete('/:id/price-lists/:plId', requireAuth, async (req, res) => {
+  try {
+    await stmts.deletePriceList.run(req.params.plId, req.orgId);
+    sendSuccess(res, null);
+  } catch (err) {
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Product Vendors
+router.

@@ -408,6 +408,82 @@ async function initSchema() {
 
     for (const fk of fks) { await db.query(fk); }
 
+    // ── GOODS RETURNS ────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS goods_returns (
+        id                TEXT PRIMARY KEY,
+        org_id            TEXT NOT NULL,
+        return_no         TEXT NOT NULL,
+        vendor_id         TEXT,
+        vendor_name       TEXT NOT NULL,
+        vendor_gstin      TEXT,
+        base_receipt_no   TEXT,
+        return_date       DATE NOT NULL,
+        warehouse         TEXT DEFAULT 'Main Warehouse',
+        status            TEXT NOT NULL DEFAULT 'draft'
+                            CHECK (status IN ('draft','submitted','approved','returned','closed','cancelled')),
+        transport_carrier TEXT,
+        transport_doc_no  TEXT,
+        transport_remarks TEXT,
+        subtotal          NUMERIC(12,2) DEFAULT 0,
+        tax_amount        NUMERIC(12,2) DEFAULT 0,
+        total_amount      NUMERIC(12,2) DEFAULT 0,
+        credit_note_no    TEXT,
+        credit_note_date  DATE,
+        ap_adjusted       BOOLEAN DEFAULT FALSE,
+        stock_adjusted    BOOLEAN DEFAULT FALSE,
+        remarks           TEXT,
+        approved_by       TEXT,
+        approved_at       TIMESTAMP,
+        returned_at       TIMESTAMP,
+        closed_at         TIMESTAMP,
+        created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at        TIMESTAMP,
+        created_by        TEXT,
+        UNIQUE (org_id, return_no)
+      )
+    `);
+
+    // ── GOODS RETURN ITEMS ───────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS goods_return_items (
+        id            TEXT PRIMARY KEY,
+        org_id        TEXT NOT NULL,
+        return_id     TEXT NOT NULL,
+        product_id    TEXT,
+        item_code     TEXT,
+        item_name     TEXT NOT NULL,
+        batch_no      TEXT,
+        qty_returned  NUMERIC(12,3) NOT NULL DEFAULT 1,
+        unit_price    NUMERIC(12,2) DEFAULT 0,
+        tax_rate      NUMERIC(5,2) DEFAULT 18,
+        tax_amount    NUMERIC(12,2) DEFAULT 0,
+        return_amount NUMERIC(12,2) DEFAULT 0,
+        reason        TEXT DEFAULT 'Damaged in Transit',
+        sort_order    INTEGER DEFAULT 0,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // ── GOODS RETURN ACTIVITY LOG ────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS goods_return_logs (
+        id         TEXT PRIMARY KEY,
+        org_id     TEXT NOT NULL,
+        return_id  TEXT NOT NULL,
+        action     TEXT NOT NULL,
+        old_status TEXT,
+        new_status TEXT,
+        note       TEXT,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // ══════════════════════════════════════════════════════════════
+    // PERFORMANCE INDEXES
+
     // ══════════════════════════════════════════════════════════════
     // PERFORMANCE INDEXES
     // ══════════════════════════════════════════════════════════════
@@ -433,18 +509,257 @@ async function initSchema() {
       `CREATE INDEX IF NOT EXISTS idx_warranty_org  ON warranty_claims(org_id)`,
       `CREATE INDEX IF NOT EXISTS idx_warranty_cust ON warranty_claims(org_id, customer_id)`,
       `CREATE INDEX IF NOT EXISTS idx_warranty_inv  ON warranty_claims(org_id, invoice_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_vdocs_vendor  ON vendor_documents(org_id, vendor_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_vdocs_vendor   ON vendor_documents(org_id, vendor_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_greturns_org   ON goods_returns(org_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_greturns_vend  ON goods_returns(org_id, vendor_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_greturns_date  ON goods_returns(org_id, return_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_gritems_ret    ON goods_return_items(return_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_gritems_prod   ON goods_return_items(org_id, product_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_grlogs_ret     ON goods_return_logs(return_id)`,
     ];
     for (const idx of indexes) { await db.query(idx); }
 
     // ══════════════════════════════════════════════════════════════
     // UPDATED_AT TRIGGERS
     // ══════════════════════════════════════════════════════════════
-    const tables = ['organizations','users','customers','vendors','products','product_vendors','invoices','invoice_items','payments','expenses','warranty_claims','vendor_documents'];
+    const tables = ['organizations','users','customers','vendors','products','product_vendors','invoices','invoice_items','payments','expenses','warranty_claims','vendor_documents','goods_returns','ap_down_payments','ap_invoices','ap_credit_memos','ap_reserve_invoices'];
     for (const t of tables) {
       await db.query(`DROP TRIGGER IF EXISTS trg_updated_at ON ${t}`);
       await db.query(`CREATE TRIGGER trg_updated_at BEFORE UPDATE ON ${t} FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`);
     }
+
+
+    // ── AP DOWN PAYMENTS ─────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_down_payments (
+        id              TEXT PRIMARY KEY,
+        org_id          TEXT NOT NULL,
+        doc_no          TEXT NOT NULL,
+        vendor_id       TEXT,
+        vendor_name     TEXT NOT NULL,
+        vendor_gstin    TEXT,
+        po_ref          TEXT,
+        payment_date    DATE NOT NULL,
+        due_date        DATE,
+        currency        TEXT DEFAULT 'INR',
+        payment_terms   TEXT,
+        amount          NUMERIC(12,2) DEFAULT 0,
+        pct_amount      NUMERIC(5,2),
+        tax_rate        NUMERIC(5,2) DEFAULT 18,
+        tax_amount      NUMERIC(12,2) DEFAULT 0,
+        total_amount    NUMERIC(12,2) DEFAULT 0,
+        paid_amount     NUMERIC(12,2) DEFAULT 0,
+        status          TEXT DEFAULT 'draft'
+                          CHECK (status IN ('draft','approved','paid','closed','cancelled')),
+        notes           TEXT,
+        approved_by     TEXT,
+        approved_at     TIMESTAMP,
+        paid_at         TIMESTAMP,
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at      TIMESTAMP,
+        created_by      TEXT,
+        UNIQUE (org_id, doc_no)
+      )
+    `);
+
+    // ── AP INVOICES ──────────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_invoices (
+        id              TEXT PRIMARY KEY,
+        org_id          TEXT NOT NULL,
+        doc_no          TEXT NOT NULL,
+        vendor_id       TEXT,
+        vendor_name     TEXT NOT NULL,
+        vendor_gstin    TEXT,
+        vendor_inv_no   TEXT,
+        po_ref          TEXT,
+        gr_ref          TEXT,
+        invoice_date    DATE NOT NULL,
+        posting_date    DATE,
+        due_date        DATE,
+        currency        TEXT DEFAULT 'INR',
+        payment_terms   TEXT,
+        subtotal        NUMERIC(12,2) DEFAULT 0,
+        discount_pct    NUMERIC(5,2) DEFAULT 0,
+        discount_amount NUMERIC(12,2) DEFAULT 0,
+        tax_amount      NUMERIC(12,2) DEFAULT 0,
+        total_amount    NUMERIC(12,2) DEFAULT 0,
+        paid_amount     NUMERIC(12,2) DEFAULT 0,
+        status          TEXT DEFAULT 'draft'
+                          CHECK (status IN ('draft','submitted','approved','partially_paid','paid','closed','cancelled')),
+        notes           TEXT,
+        approved_by     TEXT,
+        approved_at     TIMESTAMP,
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at      TIMESTAMP,
+        created_by      TEXT,
+        UNIQUE (org_id, doc_no)
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_invoice_items (
+        id          TEXT PRIMARY KEY,
+        org_id      TEXT NOT NULL,
+        invoice_id  TEXT NOT NULL,
+        product_id  TEXT,
+        item_code   TEXT,
+        item_name   TEXT NOT NULL,
+        description TEXT,
+        quantity    NUMERIC(12,3) DEFAULT 1,
+        unit_price  NUMERIC(12,2) DEFAULT 0,
+        discount    NUMERIC(5,2) DEFAULT 0,
+        tax_rate    NUMERIC(5,2) DEFAULT 18,
+        tax_amount  NUMERIC(12,2) DEFAULT 0,
+        line_total  NUMERIC(12,2) DEFAULT 0,
+        sort_order  INTEGER DEFAULT 0,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // ── AP CREDIT MEMOS ──────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_credit_memos (
+        id              TEXT PRIMARY KEY,
+        org_id          TEXT NOT NULL,
+        doc_no          TEXT NOT NULL,
+        vendor_id       TEXT,
+        vendor_name     TEXT NOT NULL,
+        vendor_gstin    TEXT,
+        ref_invoice_id  TEXT,
+        ref_invoice_no  TEXT,
+        credit_date     DATE NOT NULL,
+        posting_date    DATE,
+        currency        TEXT DEFAULT 'INR',
+        reason          TEXT DEFAULT 'Return Goods',
+        subtotal        NUMERIC(12,2) DEFAULT 0,
+        discount_amount NUMERIC(12,2) DEFAULT 0,
+        tax_amount      NUMERIC(12,2) DEFAULT 0,
+        total_amount    NUMERIC(12,2) DEFAULT 0,
+        applied_amount  NUMERIC(12,2) DEFAULT 0,
+        status          TEXT DEFAULT 'draft'
+                          CHECK (status IN ('draft','pending_approval','approved','applied','closed','cancelled')),
+        notes           TEXT,
+        approved_by     TEXT,
+        approved_at     TIMESTAMP,
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at      TIMESTAMP,
+        created_by      TEXT,
+        UNIQUE (org_id, doc_no)
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_credit_memo_items (
+        id         TEXT PRIMARY KEY,
+        org_id     TEXT NOT NULL,
+        memo_id    TEXT NOT NULL,
+        product_id TEXT,
+        item_code  TEXT,
+        item_name  TEXT NOT NULL,
+        description TEXT,
+        quantity   NUMERIC(12,3) DEFAULT 1,
+        unit_price NUMERIC(12,2) DEFAULT 0,
+        discount   NUMERIC(5,2) DEFAULT 0,
+        tax_rate   NUMERIC(5,2) DEFAULT 18,
+        tax_amount NUMERIC(12,2) DEFAULT 0,
+        line_total NUMERIC(12,2) DEFAULT 0,
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // ── AP RESERVE INVOICES ──────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_reserve_invoices (
+        id              TEXT PRIMARY KEY,
+        org_id          TEXT NOT NULL,
+        doc_no          TEXT NOT NULL,
+        vendor_id       TEXT,
+        vendor_name     TEXT NOT NULL,
+        vendor_gstin    TEXT,
+        vendor_ref_no   TEXT,
+        po_ref          TEXT,
+        gr_ref          TEXT,
+        invoice_date    DATE NOT NULL,
+        posting_date    DATE,
+        due_date        DATE,
+        currency        TEXT DEFAULT 'INR',
+        department      TEXT,
+        cost_center     TEXT,
+        project         TEXT,
+        payment_terms   TEXT,
+        description     TEXT,
+        subtotal        NUMERIC(12,2) DEFAULT 0,
+        discount_amount NUMERIC(12,2) DEFAULT 0,
+        tax_amount      NUMERIC(12,2) DEFAULT 0,
+        total_amount    NUMERIC(12,2) DEFAULT 0,
+        converted_to_id TEXT,
+        status          TEXT DEFAULT 'draft'
+                          CHECK (status IN ('draft','submitted','approved','reserved','converted','closed','cancelled')),
+        notes           TEXT,
+        approved_by     TEXT,
+        approved_at     TIMESTAMP,
+        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at      TIMESTAMP,
+        created_by      TEXT,
+        UNIQUE (org_id, doc_no)
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_reserve_invoice_items (
+        id          TEXT PRIMARY KEY,
+        org_id      TEXT NOT NULL,
+        reserve_id  TEXT NOT NULL,
+        product_id  TEXT,
+        item_code   TEXT,
+        item_name   TEXT NOT NULL,
+        description TEXT,
+        quantity    NUMERIC(12,3) DEFAULT 1,
+        unit_price  NUMERIC(12,2) DEFAULT 0,
+        discount    NUMERIC(5,2) DEFAULT 0,
+        tax_rate    NUMERIC(5,2) DEFAULT 18,
+        tax_amount  NUMERIC(12,2) DEFAULT 0,
+        total_amount NUMERIC(12,2) DEFAULT 0,
+        sort_order  INTEGER DEFAULT 0,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // ── AP ACTIVITY LOGS ─────────────────────────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS ap_activity_logs (
+        id         TEXT PRIMARY KEY,
+        org_id     TEXT NOT NULL,
+        doc_type   TEXT NOT NULL,
+        doc_id     TEXT NOT NULL,
+        action     TEXT NOT NULL,
+        old_status TEXT,
+        new_status TEXT,
+        note       TEXT,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // AP Indexes
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_dp_org    ON ap_down_payments(org_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_dp_vendor ON ap_down_payments(org_id, vendor_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_inv_org   ON ap_invoices(org_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_inv_vend  ON ap_invoices(org_id, vendor_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_ii_inv    ON ap_invoice_items(invoice_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_cm_org    ON ap_credit_memos(org_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_cm_vend   ON ap_credit_memos(org_id, vendor_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_cmi_memo  ON ap_credit_memo_items(memo_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_ri_org    ON ap_reserve_invoices(org_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_ri_vend   ON ap_reserve_invoices(org_id, vendor_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_rii_res   ON ap_reserve_invoice_items(reserve_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_log_doc   ON ap_activity_logs(doc_type, doc_id)`);
 
     console.log('PostgreSQL schema initialized successfully.');
   } catch (err) {

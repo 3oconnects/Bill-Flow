@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X, Printer, Send, CheckCircle, Truck } from 'lucide-react'
+import { X, Printer, Send, CheckCircle, Truck, MessageCircle, Bell, BellOff, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { invoicesApi, orgApi } from '@/api'
 import { fmt } from '@/lib/utils'
 import { Spinner, Badge } from '@/components/ui'
@@ -212,6 +212,174 @@ function ShipmentTab({ inv, onUpdateShipment }) {
   )
 }
 
+// ── Reminders Tab ─────────────────────────────────────────────────────
+const BEFORE_DUE_OPTIONS = [
+  { days: 7,  label: '7 days before due' },
+  { days: 3,  label: '3 days before due' },
+  { days: 1,  label: '1 day before due'  },
+]
+const OVERDUE_OPTIONS = [
+  { days: 1,  label: '1 day overdue'  },
+  { days: 7,  label: '7 days overdue' },
+  { days: 14, label: '14 days overdue' },
+  { days: 30, label: '30 days overdue' },
+]
+
+function RemindersTab({ inv }) {
+  const [beforeDue, setBeforeDue] = useState({ 7: false, 3: true, 1: false })
+  const [overdue,   setOverdue]   = useState({ 1: true, 7: true, 14: false, 30: false })
+  const [channel,   setChannel]   = useState({ email: true, whatsapp: false })
+  const [saved,     setSaved]     = useState(false)
+
+  const toggleBefore = (days) => setBeforeDue(p => ({ ...p, [days]: !p[days] }))
+  const toggleOverdue = (days) => setOverdue(p => ({ ...p, [days]: !p[days] }))
+
+  const isPaid = inv?.status === 'paid' || inv?.status === 'cancelled'
+
+  const handleSave = () => {
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  const handleSendNow = () => {
+    const phone = inv?.customer_phone?.replace(/\D/g, '')
+    const amount = fmt.currency(inv?.total)
+    const due    = fmt.date(inv?.due_date)
+    const msg = encodeURIComponent(
+      `Hi ${inv?.customer_name},\n\nThis is a reminder for invoice *${inv?.number}* for *${amount}* due on *${due}*.\n\nPlease process payment at your earliest convenience.\n\nThank you!`
+    )
+    const url = phone
+      ? `https://wa.me/${phone}?text=${msg}`
+      : `https://wa.me/?text=${msg}`
+    window.open(url, '_blank')
+  }
+
+  return (
+    <div style={{ padding: 24, maxWidth: 640 }}>
+
+      {isPaid && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: '#d1fae5', borderRadius: 10, marginBottom: 24, color: '#065f46', fontSize: 13, fontWeight: 600 }}>
+          <CheckCircle2 size={18} /> This invoice is {inv.status} — no reminders needed.
+        </div>
+      )}
+
+      {/* Notification channels */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+          Notification Channels
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[
+            { key: 'email',     icon: '📧', label: 'Email' },
+            { key: 'whatsapp',  icon: '💬', label: 'WhatsApp' },
+          ].map(ch => (
+            <label key={ch.key} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+              border: `2px solid ${channel[ch.key] ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: 10, cursor: 'pointer', flex: 1,
+              background: channel[ch.key] ? 'var(--accent-lt, #eff6ff)' : 'transparent',
+              transition: '0.2s',
+            }}>
+              <input
+                type="checkbox"
+                checked={channel[ch.key]}
+                onChange={() => setChannel(p => ({ ...p, [ch.key]: !p[ch.key] }))}
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              <span style={{ fontSize: 16 }}>{ch.icon}</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{ch.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Before-due reminders */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Clock size={15} color="var(--accent)" />
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Before Due Date
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {BEFORE_DUE_OPTIONS.map(opt => (
+            <label key={opt.days} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+              background: beforeDue[opt.days] ? 'var(--accent-lt, #eff6ff)' : 'var(--bg-2)',
+              border: `1px solid ${beforeDue[opt.days] ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: 8, cursor: isPaid ? 'not-allowed' : 'pointer', transition: '0.15s',
+              opacity: isPaid ? 0.5 : 1,
+            }}>
+              <input
+                type="checkbox"
+                checked={beforeDue[opt.days]}
+                disabled={isPaid}
+                onChange={() => toggleBefore(opt.days)}
+                style={{ accentColor: 'var(--accent)', width: 16, height: 16 }}
+              />
+              <Bell size={14} color={beforeDue[opt.days] ? 'var(--accent)' : 'var(--text-3)'} />
+              <span style={{ fontSize: 13, fontWeight: beforeDue[opt.days] ? 600 : 400 }}>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Overdue reminders */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <AlertTriangle size={15} color="#ef4444" />
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            After Due Date (Overdue)
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {OVERDUE_OPTIONS.map(opt => (
+            <label key={opt.days} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+              background: overdue[opt.days] ? '#fff5f5' : 'var(--bg-2)',
+              border: `1px solid ${overdue[opt.days] ? '#fca5a5' : 'var(--border)'}`,
+              borderRadius: 8, cursor: isPaid ? 'not-allowed' : 'pointer', transition: '0.15s',
+              opacity: isPaid ? 0.5 : 1,
+            }}>
+              <input
+                type="checkbox"
+                checked={overdue[opt.days]}
+                disabled={isPaid}
+                onChange={() => toggleOverdue(opt.days)}
+                style={{ accentColor: '#ef4444', width: 16, height: 16 }}
+              />
+              <BellOff size={14} color={overdue[opt.days] ? '#ef4444' : 'var(--text-3)'} />
+              <span style={{ fontSize: 13, fontWeight: overdue[opt.days] ? 600 : 400 }}>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button className="btn btn-primary" onClick={handleSave} disabled={isPaid}>
+          {saved ? <><CheckCircle2 size={14} /> Saved!</> : <><Bell size={14} /> Save Reminder Settings</>}
+        </button>
+        {!isPaid && (
+          <button
+            className="btn btn-ghost"
+            style={{ background: '#25D366', color: 'white', border: 'none' }}
+            onClick={handleSendNow}
+          >
+            <MessageCircle size={14} /> Send WhatsApp Reminder Now
+          </button>
+        )}
+      </div>
+
+      <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-3)' }}>
+        Reminders will be sent to {inv?.customer_email || "the customer's email"}
+        {inv?.customer_phone ? ` and ${inv.customer_phone}` : ''}.
+      </div>
+    </div>
+  )
+}
+
+// ── Main Modal ─────────────────────────────────────────────────────────
 export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange, onShipmentChange }) {
   const [tab, setTab] = useState('invoice')
   const { data: inv, isLoading } = useQuery({ queryKey: ['invoice', invoiceId], queryFn: () => invoicesApi.get(invoiceId) })
@@ -228,6 +396,25 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
     w.print()
   }
 
+  const handleWhatsApp = () => {
+    if (!inv) return
+    const phone = inv.customer_phone?.replace(/\D/g, '')
+    const amount = fmt.currency(inv.total)
+    const due    = fmt.date(inv.due_date)
+    const msg = encodeURIComponent(
+      `Hi ${inv.customer_name},\n\nPlease find your invoice *${inv.number}* for *${amount}* dated ${fmt.date(inv.date)}.\n\nDue date: *${due}*\n\nKindly make the payment at your earliest convenience. Thank you!`
+    )
+    const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`
+    window.open(url, '_blank')
+  }
+
+  const TABS = [
+    { id: 'invoice',   emoji: '📄', label: 'Invoice'   },
+    { id: 'receipt',   emoji: '🧾', label: 'Receipt'   },
+    { id: 'shipment',  emoji: '🚚', label: 'Shipment'  },
+    { id: 'reminders', emoji: '🔔', label: 'Reminders' },
+  ]
+
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 16, width: '92vw', maxWidth: 900, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
@@ -240,6 +427,17 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
                 <CheckCircle size={13} /> Mark Paid
               </button>
             )}
+            {/* WhatsApp Share button */}
+            {inv && (
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, background: '#25D366', color: 'white', border: 'none' }}
+                onClick={handleWhatsApp}
+                title="Share invoice on WhatsApp"
+              >
+                <MessageCircle size={13} /> WhatsApp
+              </button>
+            )}
             <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={handlePrint}>
               <Printer size={13} /> Print
             </button>
@@ -249,13 +447,13 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
 
         {/* Tabs */}
         <div style={{ display: 'flex', padding: '0 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          {['invoice', 'receipt', 'shipment'].map((t) => (
+          {TABS.map(({ id: t, emoji, label }) => (
             <button key={t} onClick={() => setTab(t)} style={{
-              padding: '10px 16px', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize',
+              padding: '10px 16px', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer', fontSize: 13,
               borderBottom: `2px solid ${tab === t ? 'var(--accent)' : 'transparent'}`,
               color: tab === t ? 'var(--accent)' : 'var(--text-2)', transition: '0.2s',
             }}>
-              {t === 'invoice' ? '📄' : t === 'receipt' ? '🧾' : '🚚'} {t}
+              {emoji} {label}
             </button>
           ))}
         </div>
@@ -266,9 +464,10 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
             <div style={{ textAlign: 'center', padding: 60 }}><Spinner size={32} /></div>
           ) : inv ? (
             <>
-              {tab === 'invoice' && <InvoiceTab inv={inv} org={org} />}
-              {tab === 'receipt' && <ReceiptTab inv={inv} />}
-              {tab === 'shipment' && <ShipmentTab inv={inv} onUpdateShipment={onShipmentChange} />}
+              {tab === 'invoice'   && <InvoiceTab inv={inv} org={org} />}
+              {tab === 'receipt'   && <ReceiptTab inv={inv} />}
+              {tab === 'shipment'  && <ShipmentTab inv={inv} onUpdateShipment={onShipmentChange} />}
+              {tab === 'reminders' && <RemindersTab inv={inv} />}
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-3)' }}>Invoice not found.</div>

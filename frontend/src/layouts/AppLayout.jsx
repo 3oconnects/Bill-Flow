@@ -25,12 +25,13 @@ const NAV = [
   {
     label: 'Purchase & A/P', icon: ShoppingBag, id: 'purchases',
     children: [
-      { label: 'Purchase Management',  to: '/purchases',    id: 'purchase_mgmt' },
-      { label: 'Goods Management',     to: '/goods',        id: 'goods_mgmt' },
-      { label: 'A/P Handle',           to: '/ap',           id: 'ap_handle' },
-      { label: 'Recurring Transaction', to: '/recurring',   id: 'recurring_txn' },
-      { label: 'Vendors',              to: '/vendors',      id: 'vendors' },
-      { label: 'Marketplace',          to: '/marketplace',  id: 'marketplace' },
+      { label: 'Purchase Management',  to: '/purchases',      id: 'purchase_mgmt' },
+      { label: 'Goods Management',     to: '/goods',          id: 'goods_mgmt' },
+      { label: 'Goods Returns',        to: '/goods-returns',  id: 'goods_returns' },
+      { label: 'A/P Handle',           to: '/ap',             id: 'ap_handle' },
+      { label: 'Recurring Transaction', to: '/recurring',     id: 'recurring_txn' },
+      { label: 'Vendors',              to: '/vendors',        id: 'vendors' },
+      { label: 'Marketplace',          to: '/marketplace',    id: 'marketplace' },
     ],
   },
   {
@@ -42,8 +43,12 @@ const NAV = [
   {
     label: 'Finance', icon: TrendingDown, id: 'finance',
     children: [
-      { label: 'Expenses', to: '/expenses', id: 'expenses' },
-      { label: 'Reports',  to: '/reports',  id: 'reports' },
+      { label: 'Expenses',        to: '/expenses',     id: 'expenses'  },
+      { label: 'Budget Planner',  to: '/budget',       id: 'budget'    },
+      { label: 'TDS Tracker',     to: '/tds',          id: 'tds'       },
+      { label: 'Vendor Bills',    to: '/ap#invoices',  id: 'ap_bills'  },
+      { label: 'Cash Ledger',     to: '/cash-ledger',  id: 'cashledger'},
+      { label: 'Reports',         to: '/reports',      id: 'reports'   },
     ],
   },
   {

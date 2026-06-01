@@ -5,7 +5,7 @@ import { TAX_RATES, UNITS, PRODUCT_CATEGORIES } from '@/lib/utils'
 import { Spinner } from '@/components/ui'
 
 export default function ProductForm({ initial, onSuccess, onCancel }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
     defaultValues: initial || { tax_rate: 18, unit: 'pcs', category: 'general', warranty_type: 'none', guarantee_type: 'none', is_active: true }
   })
 
@@ -52,9 +52,17 @@ export default function ProductForm({ initial, onSuccess, onCancel }) {
           </select>
         </div>
         
-        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+        <div className="form-group">
           <label className="form-label">HSN Code</label>
           <input className="form-input" {...register('hsn_code')} placeholder="e.g. 8471" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Image URL</label>
+          <input className="form-input" {...register('image_url')} placeholder="https://example.com/product.jpg" />
+          {watch('image_url') && (
+            <img src={watch('image_url')} alt="preview" onError={e => e.target.style.display='none'}
+              style={{ marginTop: 8, width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--c-border)' }} />
+          )}
         </div>
       </div>
 

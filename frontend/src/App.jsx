@@ -16,6 +16,9 @@ import InvoicesPage from '@/features/invoices/InvoicesPage'
 import InvoiceDetail from '@/features/invoices/InvoiceDetail'
 import PaymentsPage from '@/features/payments/PaymentsPage'
 import ExpensesPage from '@/features/expenses/ExpensesPage'
+import BudgetPage from '@/features/expenses/BudgetPage'
+import TDSPage from '@/features/expenses/TDSPage'
+import CashLedgerPage from '@/features/banking/CashLedgerPage'
 import ReportsPage from '@/features/reports/ReportsPage'
 import RolesPage from '@/features/roles/RolesPage'
 import WarrantyPage from '@/features/warranty/WarrantyPage'
@@ -24,7 +27,8 @@ import BankingPage from '@/features/banking/BankingPage'
 import MarketplacePage from '@/features/marketplace/MarketplacePage'
 import PurchaseMgmtPage from '@/features/purchases/PurchaseMgmtPage'
 import GoodsMgmtPage from '@/features/goods/GoodsMgmtPage'
-import APHandlePage from '@/features/ap/APHandlePage'
+import GoodsReturnPage from '@/features/goods-returns/GoodsReturnPage'
+import APPage from '@/features/ap/APPage'
 import RecurringTxnPage from '@/features/recurring/RecurringTxnPage'
 import ToastContainer from '@/components/ToastContainer'
 import { PageLoading } from '@/components/ui'
@@ -97,6 +101,9 @@ export default function App() {
 
           {/* Expenses */}
           <Route path="/expenses" element={<RequireAuth page="expenses"><ExpensesPage /></RequireAuth>} />
+          <Route path="/budget"       element={<RequireAuth page="expenses"><BudgetPage /></RequireAuth>} />
+          <Route path="/tds"          element={<RequireAuth page="expenses"><TDSPage /></RequireAuth>} />
+          <Route path="/cash-ledger"  element={<RequireAuth page="reports"><CashLedgerPage /></RequireAuth>} />
 
           {/* Reports */}
           <Route path="/reports" element={<RequireAuth page="reports"><ReportsPage /></RequireAuth>} />
@@ -116,10 +123,12 @@ export default function App() {
           {/* Purchase & A/P */}
           <Route path="/purchases" element={<RequireAuth page="purchase_mgmt"><PurchaseMgmtPage /></RequireAuth>} />
           <Route path="/goods" element={<RequireAuth page="goods_mgmt"><GoodsMgmtPage /></RequireAuth>} />
-          <Route path="/ap" element={<RequireAuth page="ap_handle"><APHandlePage /></RequireAuth>} />
+          <Route path="/ap" element={<RequireAuth page="ap_handle"><APPage /></RequireAuth>} />
           <Route path="/recurring" element={<RequireAuth page="recurring_txn"><RecurringTxnPage /></RequireAuth>} />
           <Route path="/marketplace" element={<RequireAuth page="marketplace"><MarketplacePage /></RequireAuth>} />
 
+          {/* Goods Returns */}
+          <Route path="/goods-returns" element={<RequireAuth page="goods_returns"><GoodsReturnPage /></RequireAuth>} />
           {/* Root redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>

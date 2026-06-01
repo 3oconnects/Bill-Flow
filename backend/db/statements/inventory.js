@@ -2,6 +2,7 @@
 const db = require('../conn');
 
 module.exports = {
+  
   // Vendors
   insertVendor: db.prepare(`INSERT INTO vendors (id, org_id, vendor_id, name, company_name, contact_person, email, phone, address, street, city, state, pincode, country, gstin, bank_account, ifsc, bank_name, bank_branch, status, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
   getVendors: db.prepare(`SELECT id, org_id, vendor_id, name, company_name, contact_person, email, phone, address, street, city, state, pincode, country, gstin, bank_account, ifsc, bank_name, bank_branch, status, notes, created_at FROM vendors WHERE org_id = ? AND deleted_at IS NULL ORDER BY name`),
@@ -36,4 +37,20 @@ module.exports = {
   updateProduct: db.prepare(`UPDATE products SET name=?, sku=?, hsn_code=?, description=?, category=?, unit=?, unit_price=?, purchase_price=?, tax_rate=?, stock_qty=?, low_stock_alert=?, image_url=?, brand=?, model_number=?, warranty_type=?, warranty_duration=?, warranty_unit=?, warranty_terms=?, guarantee_type=?, guarantee_duration=?, guarantee_unit=?, guarantee_terms=?, is_active=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
   deleteProduct: db.prepare(`UPDATE products SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
   updateProductStock: db.prepare(`UPDATE products SET stock_qty=stock_qty+?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
+
+  // Stock movements
+  insertStockMovement: db.prepare(`INSERT INTO stock_movements (id, org_id, product_id, type, delta, qty_before, qty_after, reason, note, reference_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+  getStockMovements: db.prepare(`SELECT sm.*, u.name as created_by_name FROM stock_movements sm LEFT JOIN users u ON sm.created_by = u.id WHERE sm.org_id = ? AND sm.product_id = ? ORDER BY sm.created_at DESC LIMIT 100`),
+
+  // Product categories
+  getProductCategories: db.prepare(`SELECT * FROM product_categories WHERE org_id = ? ORDER BY sort_order, name`),
+  insertProductCategory: db.prepare(`INSERT INTO product_categories (id, org_id, name, color, sort_order) VALUES (?, ?, ?, ?, ?)`),
+  updateProductCategory: db.prepare(`UPDATE product_categories SET name=?, color=?, sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
+  deleteProductCategory: db.prepare(`DELETE FROM product_categories WHERE id=? AND org_id=?`),
+
+  // Price lists
+  getPriceLists: db.prepare(`SELECT * FROM price_lists WHERE org_id = ? AND product_id = ? AND is_active = TRUE ORDER BY min_qty`),
+  insertPriceList: db.prepare(`INSERT INTO price_lists (id, org_id, product_id, label, price, min_qty, currency) VALUES (?, ?, ?, ?, ?, ?, ?)`),
+  updatePriceList: db.prepare(`UPDATE price_lists SET label=?, price=?, min_qty=?, currency=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
+  deletePriceList: db.prepare(`DELETE FROM price_lists WHERE id=? AND org_id=?`),
 };
