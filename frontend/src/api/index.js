@@ -76,6 +76,7 @@ export const productsApi = {
   create:        (data)          => api.post('/products', data),
   update:        (id, data)      => api.put(`/products/${id}`, data),
   remove:        (id)            => api.delete(`/products/${id}`),
+  uploadImage:    (id, data_url)  => api.post(`/products/${id}/image`, { data_url }),
   adjustStock:    (id, data)      => api.patch(`/products/${id}/stock`, data),
   clone:          (id)            => api.post(`/products/${id}/clone`),
   exportCsvUrl:   ()              => `/api/products/export/csv`,

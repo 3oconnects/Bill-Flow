@@ -60,7 +60,6 @@ module.exports = {
     LEFT JOIN expenses ex ON DATE_TRUNC('year', ex.date::date) = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
     GROUP BY d ORDER BY d ASC
   `)
-};
 
   // ── Aged Receivables ────────────────────────────────────────────────
   ,getAgedReceivables: db.prepare(`
@@ -246,3 +245,4 @@ module.exports = {
     ORDER BY date DESC, txn_type
     LIMIT 200
   `)
+};

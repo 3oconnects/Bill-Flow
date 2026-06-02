@@ -25,6 +25,13 @@ async function destroySession(token) {
   return Promise.resolve();
 }
 
+// Dev superadmin stub (mirrors shape expected by all routes)
+const DEV_USER_STUB = {
+  id: 'dev-superadmin-000', org_id: 'dev-org-000',
+  name: 'Dev SuperAdmin', email: 'admin@ozofi.com',
+  role: 'owner', is_active: 1, password_hash: '',
+};
+
 // Express middleware — attaches req.user and req.orgId if valid JWT
 async function requireAuth(req, res, next) {
   try {
@@ -36,6 +43,13 @@ async function requireAuth(req, res, next) {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch (e) {
       return res.status(401).json({ error: 'Session invalid or expired' });
+    }
+
+    // ── Dev bypass: inject stub user, skip DB entirely ────────────────────
+    if (process.env.NODE_ENV !== 'production' && decoded.uid === 'dev-superadmin-000') {
+      req.user  = DEV_USER_STUB;
+      req.orgId = 'dev-org-000';
+      return next();
     }
 
     const user = await stmts.getUserById.get(decoded.uid);

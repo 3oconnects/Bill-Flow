@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useTopbarStore } from '@/store/topbarStore'
 import { authApi } from '@/api'
 import { toast } from '@/store/toastStore'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { ROLE_PAGE_ACCESS, fmt } from '@/lib/utils'
 
 const NAV = [
@@ -37,7 +38,8 @@ const NAV = [
   {
     label: 'Inventory', icon: Package, id: 'inventory',
     children: [
-      { label: 'Products', to: '/products', id: 'products' },
+      { label: 'Products',              to: '/products',              id: 'products' },
+      { label: 'Procurement Analysis',  to: '/procurement-analysis',  id: 'procurement_analysis' },
     ],
   },
   {
@@ -193,6 +195,8 @@ export default function AppLayout() {
               <Bell size={18} />
               <span className="topbar-bell-dot" />
             </button>
+
+            <ThemeToggle />
 
             <div style={{ position: 'relative' }} ref={userMenuRef}>
               <div className="topbar-user" onClick={() => setUserMenuOpen((o) => !o)}>

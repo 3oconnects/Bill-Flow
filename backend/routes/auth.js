@@ -36,11 +36,56 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// ── DEV SUPERADMIN BYPASS (local only, never runs in production) ────────────
+const DEV_ADMIN = {
+  id:       'dev-superadmin-000',
+  org_id:   'dev-org-000',
+  name:     'Dev SuperAdmin',
+  email:    'admin@ozofi.com',
+  role:     'owner',
+  is_active: 1,
+  password_hash: '',
+};
+const DEV_ORG = {
+  id: 'dev-org-000', name: 'Ozofi',            email: 'admin@ozofi.com',
+  currency: 'INR', invoice_prefix: 'INV-', state: 'Tamil Nadu', country: 'India',
+};
+
 // Login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return sendError(res, 'Email and password required', 'VALIDATION_ERROR', 400);
+
+    // ── Dev bypass: only in development, with exact credentials ──────────────
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      email    === 'admin@ozofi.com' &&
+      password === 'Admin@ozofi!'
+    ) {
+      // Use the first real owner from the DB so all data queries work
+      const { db } = require('../db');
+      const realUser = await db.query(
+        `SELECT u.id, u.org_id, u.name, u.email, u.role FROM users u
+         WHERE u.role = 'owner' AND u.is_active = true AND u.deleted_at IS NULL
+         ORDER BY u.created_at ASC LIMIT 1`
+      ).then(r => r.rows[0]).catch(() => null);
+
+      if (realUser) {
+        const token = await createSession(realUser.id, realUser.org_id);
+        res.cookie('bf_session', token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000, sameSite: 'lax' });
+        const org = await stmts.getOrg.get(realUser.org_id);
+        console.log(`⚡ DEV login → real org: ${org?.name} (${realUser.org_id})`);
+        return sendSuccess(res, { user: { id: realUser.id, name: realUser.name, email: realUser.email, role: realUser.role }, org });
+      }
+
+      // No org exists yet — fall back to stub so login still works on a fresh DB
+      const token = await createSession(DEV_ADMIN.id, DEV_ADMIN.org_id);
+      res.cookie('bf_session', token, { httpOnly: true, maxAge: 7 * 24 * 3600 * 1000, sameSite: 'lax' });
+      console.log('⚡ DEV superadmin login — no org in DB yet, using stub');
+      return sendSuccess(res, { user: { id: DEV_ADMIN.id, name: DEV_ADMIN.name, email: DEV_ADMIN.email, role: DEV_ADMIN.role }, org: DEV_ORG });
+    }
+    // ── Normal DB login ───────────────────────────────────────────────────────
 
     const user = await stmts.getUserByEmail.get(email);
     if (!user || !checkPassword(password, user.password_hash))

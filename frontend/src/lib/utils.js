@@ -39,9 +39,9 @@ export const statusBadge = (status) => {
 
 export const ROLES = ['owner', 'admin', 'staff', 'member']
 export const ROLE_PAGE_ACCESS = {
-  owner:  ['dashboard','customers','products','invoices','payments','vendors','expenses','reports','settings','marketplace','banking','warranty','roles','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn'],
-  admin:  ['dashboard','customers','products','invoices','payments','vendors','expenses','reports','settings','marketplace','banking','warranty','roles','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn'],
-  staff:  ['dashboard','customers','products','invoices','payments','vendors','expenses','banking','warranty','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn'],
+  owner:  ['dashboard','customers','products','invoices','payments','vendors','expenses','reports','settings','marketplace','banking','warranty','roles','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn','procurement_analysis'],
+  admin:  ['dashboard','customers','products','invoices','payments','vendors','expenses','reports','settings','marketplace','banking','warranty','roles','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn','procurement_analysis'],
+  staff:  ['dashboard','customers','products','invoices','payments','vendors','expenses','banking','warranty','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn','procurement_analysis'],
   member: ['dashboard','customers','products','invoices','payments','vendors','expenses','warranty','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn'],
 }
 export const ROLE_DEFAULT_PAGE = {

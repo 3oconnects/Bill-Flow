@@ -81,6 +81,30 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// Image upload — stores base64 data-URL directly in image_url column (no external storage needed)
+router.post('/:id/image', requireAuth, async (req, res) => {
+  try {
+    const { data_url } = req.body;
+    if (!data_url || !data_url.startsWith('data:image/')) return sendError(res, 'Invalid image data', 'VALIDATION_ERROR', 400);
+    if (data_url.length > 2 * 1024 * 1024) return sendError(res, 'Image too large (max 1.5 MB)', 'VALIDATION_ERROR', 400);
+    const product = await stmts.getProduct.get(req.params.id, req.orgId);
+    if (!product) return sendError(res, 'Product not found', 'NOT_FOUND', 404);
+    await stmts.updateProduct.run(
+      product.name, product.sku, product.hsn_code, product.description, product.category,
+      product.unit, product.unit_price, product.purchase_price, product.tax_rate,
+      product.stock_qty, product.low_stock_alert, data_url,
+      product.brand, product.model_number, product.warranty_type, product.warranty_duration,
+      product.warranty_unit, product.warranty_terms, product.guarantee_type,
+      product.guarantee_duration, product.guarantee_unit, product.guarantee_terms,
+      product.is_active, req.params.id, req.orgId
+    );
+    sendSuccess(res, { image_url: data_url });
+  } catch (err) {
+    console.error('Image upload error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.patch('/:id/stock', requireAuth, async (req, res) => {
   try {
     const { delta, reason, note } = req.body;
@@ -256,4 +280,5 @@ router.delete('/:id/price-lists/:plId', requireAuth, async (req, res) => {
 });
 
 // Product Vendors
-router.
+
+module.exports = router;

@@ -1,6 +1,9 @@
 // backend/db/conn.js
-require('dotenv').config();
-const { Pool } = require('pg');
+const path = require('path');
+// Always load .env from the project root regardless of cwd
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+// Resolve pg from the project root node_modules in case server is run from a subdirectory
+const { Pool } = require(require.resolve('pg', { paths: [path.resolve(__dirname, '../../')] }));
 
 const pool = new Pool({
   host: process.env.DB_HOST,

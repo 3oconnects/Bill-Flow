@@ -1,0 +1,175 @@
+/**
+ * Dark Mode CSS Variables
+ * Extends Tailwind's default colors for consistent dark mode
+ */
+
+/* Light mode (default) */
+:root {
+  /* Primary colors */
+  --color-primary: #3b82f6; /* Blue 500 */
+  --color-primary-dark: #2563eb; /* Blue 600 */
+  --color-primary-light: #60a5fa; /* Blue 400 */
+
+  /* Background colors */
+  --color-bg: #ffffff;
+  --color-bg-secondary: #f9fafb; /* Gray 50 */
+  --color-bg-tertiary: #f3f4f6; /* Gray 100 */
+  --color-border: #e5e7eb; /* Gray 200 */
+
+  /* Text colors */
+  --color-text: #111827; /* Gray 900 */
+  --color-text-secondary: #6b7280; /* Gray 500 */
+  --color-text-tertiary: #9ca3af; /* Gray 400 */
+
+  /* Status colors */
+  --color-success: #10b981; /* Emerald 500 */
+  --color-warning: #f59e0b; /* Amber 500 */
+  --color-error: #ef4444; /* Red 500 */
+  --color-info: #3b82f6; /* Blue 500 */
+
+  /* Shadow */
+  --color-shadow: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode */
+:root.dark {
+  /* Primary colors (adjusted for dark mode) */
+  --color-primary: #60a5fa; /* Blue 400 */
+  --color-primary-dark: #3b82f6; /* Blue 500 */
+  --color-primary-light: #93c5fd; /* Blue 300 */
+
+  /* Background colors */
+  --color-bg: #111827; /* Gray 900 */
+  --color-bg-secondary: #1f2937; /* Gray 800 */
+  --color-bg-tertiary: #374151; /* Gray 700 */
+  --color-border: #4b5563; /* Gray 600 */
+
+  /* Text colors */
+  --color-text: #f9fafb; /* Gray 50 */
+  --color-text-secondary: #d1d5db; /* Gray 300 */
+  --color-text-tertiary: #9ca3af; /* Gray 400 */
+
+  /* Status colors (slightly adjusted) */
+  --color-success: #34d399; /* Emerald 400 */
+  --color-warning: #fbbf24; /* Amber 400 */
+  --color-error: #f87171; /* Red 400 */
+  --color-info: #60a5fa; /* Blue 400 */
+
+  /* Shadow */
+  --color-shadow: rgba(0, 0, 0, 0.3);
+}
+
+/**
+ * Utility classes for theme-aware components
+ */
+
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.bg-secondary {
+  background-color: var(--color-bg-secondary);
+}
+
+.text-primary {
+  color: var(--color-text);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.border-primary {
+  border-color: var(--color-border);
+}
+
+.shadow-sm {
+  box-shadow: 0 1px 2px 0 var(--color-shadow);
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px -1px var(--color-shadow);
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px var(--color-shadow);
+}
+
+/**
+ * Dark mode overrides — driven by .dark class on <html> (set by themeStore)
+ */
+
+html.dark body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+html.dark a {
+  color: var(--color-primary);
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/**
+ * Smooth transitions for theme changes
+ */
+html {
+  transition: background-color 200ms, color 200ms;
+}
+
+body {
+  transition: background-color 200ms, color 200ms;
+}
+
+button,
+input,
+textarea,
+select {
+  transition: background-color 200ms, border-color 200ms, color 200ms;
+}
+
+/**
+ * Dark mode specific component styles
+ */
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark input:autofill {
+  -webkit-autofill-value: var(--color-text);
+  -webkit-autofill-text: var(--color-text);
+}
+
+.dark ::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}

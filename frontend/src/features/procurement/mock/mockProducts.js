@@ -1,0 +1,30 @@
+// ── MOCK DATA — dev preview only ─────────────────────────────────────────────
+// To remove: delete this file and remove the useMock block in ProcurementAnalysisPage.jsx
+
+export const MOCK_PRODUCTS = [
+  { id:'m1',  name:'HP Pavilion 15 Laptop',      sku:'SKU-HP-0001',  category:'electronics', unit:'pcs', unit_price:72000,  purchase_price:62000, tax_rate:18, stock_qty:23,  low_stock_alert:5,  is_active:1, brand:'HP' },
+  { id:'m2',  name:'Dell XPS 13 Laptop',          sku:'SKU-DEL-0001', category:'electronics', unit:'pcs', unit_price:95000,  purchase_price:82000, tax_rate:18, stock_qty:8,   low_stock_alert:3,  is_active:1, brand:'Dell' },
+  { id:'m3',  name:'Apple MacBook Air M2',         sku:'SKU-APL-0001', category:'electronics', unit:'pcs', unit_price:114000, purchase_price:98000, tax_rate:18, stock_qty:12,  low_stock_alert:4,  is_active:1, brand:'Apple' },
+  { id:'m4',  name:'Samsung Galaxy S24',           sku:'SKU-SAM-0001', category:'electronics', unit:'pcs', unit_price:74999,  purchase_price:63000, tax_rate:18, stock_qty:31,  low_stock_alert:10, is_active:1, brand:'Samsung' },
+  { id:'m5',  name:'iPhone 15 Pro',                sku:'SKU-APL-0002', category:'electronics', unit:'pcs', unit_price:134900, purchase_price:118000,tax_rate:18, stock_qty:5,   low_stock_alert:5,  is_active:1, brand:'Apple' },
+  { id:'m6',  name:'Sony WH-1000XM5 Headphones',  sku:'SKU-SNY-0001', category:'electronics', unit:'pcs', unit_price:29990,  purchase_price:22000, tax_rate:18, stock_qty:18,  low_stock_alert:5,  is_active:1, brand:'Sony' },
+  { id:'m7',  name:'Logitech MX Master 3 Mouse',  sku:'SKU-LGT-0001', category:'accessories', unit:'pcs', unit_price:9995,   purchase_price:6500,  tax_rate:18, stock_qty:42,  low_stock_alert:10, is_active:1, brand:'Logitech' },
+  { id:'m8',  name:'HP LaserJet Pro Printer',      sku:'SKU-HP-0002',  category:'electronics', unit:'pcs', unit_price:18500,  purchase_price:14200, tax_rate:18, stock_qty:7,   low_stock_alert:3,  is_active:1, brand:'HP' },
+  { id:'m9',  name:'Samsung 27" Monitor',          sku:'SKU-SAM-0002', category:'electronics', unit:'pcs', unit_price:22999,  purchase_price:17500, tax_rate:18, stock_qty:14,  low_stock_alert:4,  is_active:1, brand:'Samsung' },
+  { id:'m10', name:'Seagate 2TB HDD',              sku:'SKU-SGT-0001', category:'storage',     unit:'pcs', unit_price:4999,   purchase_price:3200,  tax_rate:18, stock_qty:55,  low_stock_alert:15, is_active:1, brand:'Seagate' },
+  { id:'m11', name:'Kingston 16GB DDR4 RAM',       sku:'SKU-KNG-0001', category:'accessories', unit:'pcs', unit_price:3299,   purchase_price:2100,  tax_rate:18, stock_qty:80,  low_stock_alert:20, is_active:1, brand:'Kingston' },
+  { id:'m12', name:'TP-Link Wi-Fi 6 Router',       sku:'SKU-TPL-0001', category:'networking',  unit:'pcs', unit_price:7499,   purchase_price:5200,  tax_rate:18, stock_qty:22,  low_stock_alert:6,  is_active:1, brand:'TP-Link' },
+  { id:'m13', name:'Zebronics Mechanical Keyboard',sku:'SKU-ZEB-0001', category:'accessories', unit:'pcs', unit_price:2499,   purchase_price:1400,  tax_rate:18, stock_qty:35,  low_stock_alert:10, is_active:1, brand:'Zebronics' },
+  { id:'m14', name:'WD 1TB SSD',                   sku:'SKU-WD-0001',  category:'storage',     unit:'pcs', unit_price:7999,   purchase_price:5800,  tax_rate:18, stock_qty:28,  low_stock_alert:8,  is_active:1, brand:'WD' },
+  { id:'m15', name:'Lenovo IdeaPad Slim 5',        sku:'SKU-LNV-0001', category:'electronics', unit:'pcs', unit_price:52000,  purchase_price:44000, tax_rate:18, stock_qty:9,   low_stock_alert:3,  is_active:1, brand:'Lenovo' },
+  { id:'m16', name:'Corsair 650W PSU',             sku:'SKU-CRS-0001', category:'accessories', unit:'pcs', unit_price:6999,   purchase_price:4800,  tax_rate:18, stock_qty:3,   low_stock_alert:5,  is_active:1, brand:'Corsair' },
+  { id:'m17', name:'ASUS ROG Gaming Chair',        sku:'SKU-ASS-0001', category:'furniture',   unit:'pcs', unit_price:24999,  purchase_price:18000, tax_rate:18, stock_qty:6,   low_stock_alert:2,  is_active:1, brand:'ASUS' },
+  { id:'m18', name:'Epson Ink Tank Printer',       sku:'SKU-EPS-0001', category:'electronics', unit:'pcs', unit_price:16990,  purchase_price:12500, tax_rate:18, stock_qty:11,  low_stock_alert:3,  is_active:1, brand:'Epson' },
+  { id:'m19', name:'Belkin USB-C Hub 7-in-1',      sku:'SKU-BLK-0001', category:'accessories', unit:'pcs', unit_price:3499,   purchase_price:1900,  tax_rate:18, stock_qty:48,  low_stock_alert:12, is_active:1, brand:'Belkin' },
+  { id:'m20', name:'Antec Mid Tower Cabinet',      sku:'SKU-ATC-0001', category:'accessories', unit:'pcs', unit_price:4299,   purchase_price:2800,  tax_rate:18, stock_qty:0,   low_stock_alert:4,  is_active:1, brand:'Antec' },
+  { id:'m21', name:'LG 55" 4K Smart TV',           sku:'SKU-LG-0001',  category:'electronics', unit:'pcs', unit_price:62000,  purchase_price:51000, tax_rate:18, stock_qty:4,   low_stock_alert:2,  is_active:1, brand:'LG' },
+  { id:'m22', name:'Canon EOS 200D DSLR',          sku:'SKU-CNN-0001', category:'electronics', unit:'pcs', unit_price:44990,  purchase_price:37000, tax_rate:18, stock_qty:2,   low_stock_alert:2,  is_active:0, brand:'Canon' },
+  { id:'m23', name:'Ink Cartridge HP 680 Black',   sku:'SKU-HP-0003',  category:'accessories', unit:'pcs', unit_price:499,    purchase_price:280,   tax_rate:12, stock_qty:120, low_stock_alert:30, is_active:1, brand:'HP' },
+  { id:'m24', name:'UPS 600VA APC',                sku:'SKU-APC-0001', category:'electronics', unit:'pcs', unit_price:3299,   purchase_price:2200,  tax_rate:18, stock_qty:17,  low_stock_alert:5,  is_active:1, brand:'APC' },
+  { id:'m25', name:'D-Link 8-Port Switch',         sku:'SKU-DLK-0001', category:'networking',  unit:'pcs', unit_price:1299,   purchase_price:750,   tax_rate:18, stock_qty:33,  low_stock_alert:10, is_active:1, brand:'D-Link' },
+]

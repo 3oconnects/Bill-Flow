@@ -4,11 +4,13 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.jsx'
 import './index.css'
+import './styles/theme.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2, // 2 minutes
+      staleTime: 1000 * 60 * 5,   // 5 min — serve cached data, no spinner on tab switch
+      gcTime:    1000 * 60 * 15,  // 15 min — keep in memory across navigation
       retry: 1,
       refetchOnWindowFocus: false,
     },

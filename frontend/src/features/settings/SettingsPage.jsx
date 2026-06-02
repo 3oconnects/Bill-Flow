@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orgApi, teamApi, authApi } from '@/api'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
+import { useTheme } from '@store/themeStore'
 import { PageLoading, Spinner, Badge } from '@/components/ui'
 import { useForm } from 'react-hook-form'
 import Modal from '@/components/Modal'
@@ -98,17 +99,21 @@ function TeamTab() {
     onError: (e) => toast.error(e.message),
   })
   if (isLoading) return <PageLoading />
+
+  // Ensure team is an array (guard against undefined/null)
+  const teamList = Array.isArray(team) ? team : []
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{team.length} active members</div>
+        <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{teamList.length} active members</div>
         <button className="btn btn-primary" onClick={() => setAddOpen(true)}><Plus size={14} /> Add Member</button>
       </div>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th style={{ width: 60 }}></th></tr></thead>
           <tbody>
-            {team.map((m) => (
+            {teamList.map((m) => (
               <tr key={m.id}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -208,32 +213,35 @@ function SecurityTab() {
 
 // ── Appearance Tab ─────────────────────────────────────────────────────
 function AppearanceTab() {
-  const [theme, setTheme] = useState(localStorage.getItem('bf_theme') || 'dark')
+  const { isDark, setMode, mode } = useTheme()
   const [compact, setCompact] = useState(localStorage.getItem('bf_compact') === 'true')
 
   const applyTheme = (t) => {
-    setTheme(t)
-    localStorage.setItem('bf_theme', t)
-    document.documentElement.setAttribute('data-theme', t)
+    if (t === 'light') setMode('light')
+    else if (t === 'dark') setMode('dark')
+    else setMode('system')
     toast.success(`${t.charAt(0).toUpperCase() + t.slice(1)} mode applied`)
   }
 
+  // Map mode to selected card id
+  const selectedId = mode === 'light' ? 'light' : mode === 'dark' ? 'dark' : 'system'
+
   return (
     <div>
-      <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Color Theme</div>
+      <div style={{ fontSize: 11, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Color Theme</div>
       <div style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
         {[
-          { id: 'dark', label: 'Dark Mode', preview: 'linear-gradient(135deg,#0d0e14,#1a1b26)' },
-          { id: 'light', label: 'Light Mode', preview: 'linear-gradient(135deg,#f8f9fa,#e9ecef)' },
-          { id: 'midnight', label: 'Midnight', preview: 'linear-gradient(135deg,#0a0a1a,#12122a)' },
+          { id: 'dark', label: 'Dark Mode', preview: 'linear-gradient(135deg,#0f1117,#1a1d27)' },
+          { id: 'light', label: 'Light Mode', preview: 'linear-gradient(135deg,#f4f5f7,#ffffff)' },
+          { id: 'system', label: 'System', preview: 'linear-gradient(135deg,#e2e8f0,#94a3b8)' },
         ].map((t) => (
           <div key={t.id} onClick={() => applyTheme(t.id)} style={{
             cursor: 'pointer', borderRadius: 12, overflow: 'hidden',
-            border: `2px solid ${theme === t.id ? 'var(--accent)' : 'var(--border)'}`,
+            border: `2px solid ${selectedId === t.id ? 'var(--c-primary)' : 'var(--c-border)'}`,
             transition: '0.2s',
           }}>
             <div style={{ width: 120, height: 72, background: t.preview }} />
-            <div style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, textAlign: 'center', color: theme === t.id ? 'var(--accent)' : 'var(--text-2)' }}>
+            <div style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, textAlign: 'center', color: selectedId === t.id ? 'var(--c-primary)' : 'var(--c-text2)' }}>
               {t.label}
             </div>
           </div>

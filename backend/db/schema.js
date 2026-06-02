@@ -747,6 +747,26 @@ async function initSchema() {
       )
     `);
 
+    // ── AUDIT LOGS (Compliance & Auditing) ──────────────────────
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id            TEXT PRIMARY KEY,
+        org_id        TEXT NOT NULL,
+        user_id       TEXT NOT NULL,
+        action        TEXT NOT NULL CHECK (action IN ('CREATE', 'UPDATE', 'DELETE')),
+        entity_type   TEXT NOT NULL,
+        entity_id     TEXT NOT NULL,
+        old_values    JSONB,
+        new_values    JSONB,
+        ip_address    TEXT,
+        user_agent    TEXT,
+        timestamp     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (org_id) REFERENCES organizations(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
     // AP Indexes
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_dp_org    ON ap_down_payments(org_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_dp_vendor ON ap_down_payments(org_id, vendor_id)`);
@@ -760,6 +780,11 @@ async function initSchema() {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_ri_vend   ON ap_reserve_invoices(org_id, vendor_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_rii_res   ON ap_reserve_invoice_items(reserve_id)`);
     await db.query(`CREATE INDEX IF NOT EXISTS idx_ap_log_doc   ON ap_activity_logs(doc_type, doc_id)`);
+
+    // Audit log indexes
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_org   ON audit_logs(org_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id)`);
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_audit_ts    ON audit_logs(timestamp DESC)`);
 
     console.log('PostgreSQL schema initialized successfully.');
   } catch (err) {
