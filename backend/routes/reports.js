@@ -1,19 +1,19 @@
 // backend/routes/reports.js
+'use strict';
 const express = require('express');
-const router = express.Router();
-const { stmts } = require('../db');
+const router  = express.Router();
+const { stmts, db } = require('../db');
 const { requireAuth } = require('../auth');
 const { sendSuccess, sendError } = require('../utils/response');
+const cache = require('../utils/cache');
 
+// Dashboard summary (Redis cached 5 min)
 router.get('/summary', requireAuth, async (req, res) => {
   try {
-    const summary = {
-      totalRevenue: 0, totalExpenses: 0, outstanding: 0, overdue: 0,
-      invoiceCount: 0, customerCount: 0, monthlyRevenue: [], monthlyExpenses: [],
-      invoicesByStatus: [], topCustomers: [], expenseByCategory: []
-    };
+    const cacheKey = 'summary:' + req.orgId;
+    const cached   = await cache.get(cacheKey);
+    if (cached) return sendSuccess(res, cached);
 
-    // Parallel fetch for ALL metrics for maximum speed
     const [rev, exp, out, count, cust, status, topCust, expCat, monRev, monExp] = await Promise.all([
       stmts.getTotalRevenue.get(req.orgId),
       stmts.getTotalExpenses.get(req.orgId),
@@ -24,20 +24,23 @@ router.get('/summary', requireAuth, async (req, res) => {
       stmts.getTopCustomers.all(req.orgId),
       stmts.getExpensesByCategory.all(req.orgId),
       stmts.getMonthlyRevenue.all(req.orgId),
-      stmts.getMonthlyExpenses.all(req.orgId)
+      stmts.getMonthlyExpenses.all(req.orgId),
     ]);
 
-    summary.totalRevenue = rev?.total || 0;
-    summary.totalExpenses = exp?.total || 0;
-    summary.outstanding = out?.total || 0;
-    summary.invoiceCount = count?.count || 0;
-    summary.customerCount = cust?.count || 0;
-    summary.invoicesByStatus = status;
-    summary.topCustomers = topCust;
-    summary.expenseByCategory = expCat;
-    summary.monthlyRevenue = monRev;
-    summary.monthlyExpenses = monExp;
+    const summary = {
+      totalRevenue:     (rev && rev.total)   || 0,
+      totalExpenses:    (exp && exp.total)   || 0,
+      outstanding:      (out && out.total)   || 0,
+      invoiceCount:     (count && count.count) || 0,
+      customerCount:    (cust && cust.count) || 0,
+      invoicesByStatus: status         || [],
+      topCustomers:     topCust        || [],
+      expenseByCategory: expCat        || [],
+      monthlyRevenue:   monRev         || [],
+      monthlyExpenses:  monExp         || [],
+    };
 
+    await cache.set(cacheKey, summary, 300);
     sendSuccess(res, summary);
   } catch (err) {
     console.error('Get report summary error:', err);
@@ -45,23 +48,20 @@ router.get('/summary', requireAuth, async (req, res) => {
   }
 });
 
+// Chart data
 router.get('/chart', requireAuth, async (req, res) => {
-  console.log('API: GET /api/reports/chart hit', req.query);
   try {
     const { mode } = req.query;
     let data = [];
-    if (mode === 'day') data = await stmts.getDailyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
+    if (mode === 'day')       data = await stmts.getDailyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
     else if (mode === 'year') data = await stmts.getYearlyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
-    else data = await stmts.getMonthlyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
-
+    else                      data = await stmts.getMonthlyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
     sendSuccess(res, { points: data });
   } catch (err) {
     console.error('Get chart data error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });
-
-module.exports = router;
 
 // Aged Receivables
 router.get('/aged-receivables', requireAuth, async (req, res) => {
@@ -131,7 +131,7 @@ router.get('/expense-analytics', requireAuth, async (req, res) => {
   }
 });
 
-// A/P Aging
+// AP Aging
 router.get('/ap-aging', requireAuth, async (req, res) => {
   try {
     const rows = await stmts.getAPAging.all(req.orgId);
@@ -179,3 +179,5 @@ router.get('/cash-ledger', requireAuth, async (req, res) => {
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });
+
+module.exports = router;

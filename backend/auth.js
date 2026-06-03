@@ -1,9 +1,18 @@
 // backend/auth.js
+'use strict';
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const jwt    = require('jsonwebtoken');
 const { stmts } = require('./db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'billflow-pro-secret-key-123';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[FATAL] JWT_SECRET env var not set. Exiting.');
+    process.exit(1);
+  }
+  console.warn('[WARN] JWT_SECRET not set — using insecure dev fallback. DO NOT use in production.');
+}
+const _JWT_SECRET = JWT_SECRET || 'dev-insecure-secret-do-not-use-in-production';
 const SESSION_DAYS = 7;
 
 function hashPassword(plain) {
@@ -15,37 +24,32 @@ function checkPassword(plain, hash) {
 }
 
 async function createSession(userId, orgId) {
-  // Use JWT instead of database-backed sessions for better scalability and security
-  return jwt.sign({ uid: userId, oid: orgId }, JWT_SECRET, { expiresIn: `${SESSION_DAYS}d` });
+  return jwt.sign({ uid: userId, oid: orgId }, _JWT_SECRET, { expiresIn: SESSION_DAYS + 'd' });
 }
 
 async function destroySession(token) {
-  // JWTs are stateless, but we could blacklist them if needed. 
-  // For now, clearing the cookie on the client is sufficient.
   return Promise.resolve();
 }
 
-// Dev superadmin stub (mirrors shape expected by all routes)
+// Dev superadmin stub
 const DEV_USER_STUB = {
   id: 'dev-superadmin-000', org_id: 'dev-org-000',
   name: 'Dev SuperAdmin', email: 'admin@ozofi.com',
   role: 'owner', is_active: 1, password_hash: '',
 };
 
-// Express middleware — attaches req.user and req.orgId if valid JWT
 async function requireAuth(req, res, next) {
   try {
-    const token = req.cookies?.bf_session;
+    const token = req.cookies && req.cookies.bf_session;
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
 
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = jwt.verify(token, _JWT_SECRET);
     } catch (e) {
       return res.status(401).json({ error: 'Session invalid or expired' });
     }
 
-    // ── Dev bypass: inject stub user, skip DB entirely ────────────────────
     if (process.env.NODE_ENV !== 'production' && decoded.uid === 'dev-superadmin-000') {
       req.user  = DEV_USER_STUB;
       req.orgId = 'dev-org-000';
@@ -55,7 +59,7 @@ async function requireAuth(req, res, next) {
     const user = await stmts.getUserById.get(decoded.uid);
     if (!user || !user.is_active) return res.status(401).json({ error: 'Account inactive' });
 
-    req.user = user;
+    req.user  = user;
     req.orgId = decoded.oid;
     next();
   } catch (err) {
@@ -64,15 +68,13 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// Owner-only actions
 function requireOwner(req, res, next) {
-  if (req.user?.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+  if (!req.user || req.user.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
   next();
 }
 
-// Admin or owner
 function requireAdmin(req, res, next) {
-  if (!['owner', 'admin'].includes(req.user?.role)) return res.status(403).json({ error: 'Admin access required' });
+  if (!req.user || !['owner', 'admin'].includes(req.user.role)) return res.status(403).json({ error: 'Admin access required' });
   next();
 }
 

@@ -1,55 +1,50 @@
 // backend/db/conn.js
+'use strict';
 const path = require('path');
-// Always load .env from the project root regardless of cwd
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-// Resolve pg from the project root node_modules in case server is run from a subdirectory
-const { Pool } = require(require.resolve('pg', { paths: [path.resolve(__dirname, '../../')] }));
+const { Pool } = require('pg');
 
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  host:                    process.env.DB_HOST,
+  port:                    parseInt(process.env.DB_PORT || '5432'),
+  database:                process.env.DB_NAME,
+  user:                    process.env.DB_USER,
+  password:                process.env.DB_PASSWORD,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 30000,
-  keepAlive: true,
+  max:                     parseInt(process.env.DB_POOL_MAX || '25'),
+  idleTimeoutMillis:       30000,
+  connectionTimeoutMillis: 5000,
+  allowExitOnIdle:         true,
+  keepAlive:               true,
 });
 
-console.log(`🔌 DB: Connecting to ${process.env.DB_HOST}:${process.env.DB_PORT} as ${process.env.DB_USER}...`);
-
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+pool.on('error', function(err) {
+  console.error('Unexpected error on idle DB client', err);
 });
 
-// Helper to handle queries with parameters using the pool
-const db = {
-  query: (text, params) => pool.query(text, params),
-  // For better-sqlite3 compatibility (async versions)
-  prepare: (sql) => {
-    // Replace ? with $1, $2, etc.
-    let count = 0;
-    const pgSql = sql.replace(/\?/g, () => `$${++count}`);
+var db = {
+  query:   function(text, params) { return pool.query(text, params); },
+  connect: function() { return pool.connect(); },
+  prepare: function(sql) {
+    var count = 0;
+    var pgSql = sql.replace(/\?/g, function() { return '$' + (++count); });
     return {
-      run: async (...params) => {
-        const res = await pool.query(pgSql, params);
-        return {
-          changes: res.rowCount,
-          lastInsertRowid: res.rows[0]?.id || null // Mocking lastInsertRowid for PG
-        };
+      run: function() {
+        var params = Array.prototype.slice.call(arguments);
+        return pool.query(pgSql, params).then(function(r) {
+          return { changes: r.rowCount, lastInsertRowid: (r.rows[0] && r.rows[0].id) || null };
+        });
       },
-      get: async (...args) => {
-        const res = await pool.query(pgSql, args);
-        return res.rows[0];
+      get: function() {
+        var params = Array.prototype.slice.call(arguments);
+        return pool.query(pgSql, params).then(function(r) { return r.rows[0]; });
       },
-      all: async (...args) => {
-        const res = await pool.query(pgSql, args);
-        return res.rows;
-      }
+      all: function() {
+        var params = Array.prototype.slice.call(arguments);
+        return pool.query(pgSql, params).then(function(r) { return r.rows; });
+      },
     };
-  }
+  },
 };
 
 module.exports = db;

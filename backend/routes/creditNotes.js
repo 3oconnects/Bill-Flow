@@ -142,27 +142,60 @@ router.patch('/:id/approve', requireAuth, async (req, res) => {
   }
 });
 
-// ── Apply (mark as credit applied to customer account) ────────────────────────
+// ── Apply credit note — reduces invoice outstanding atomically
 router.patch('/:id/apply', requireAuth, async (req, res) => {
   try {
-    await db.query(
-      `UPDATE credit_notes SET status='applied', applied_at=CURRENT_TIMESTAMP,
-       updated_at=CURRENT_TIMESTAMP WHERE id=$1 AND org_id=$2`,
+    await db.query('BEGIN');
+    const cnRow = await db.query(
+      'SELECT * FROM credit_notes WHERE id=$1 AND org_id=$2 AND deleted_at IS NULL FOR UPDATE',
       [req.params.id, req.orgId]
     );
+    if (!cnRow.rows.length) {
+      await db.query('ROLLBACK');
+      return sendError(res, 'Credit note not found', 'NOT_FOUND', 404);
+    }
+    const cn = cnRow.rows[0];
+    if (cn.status !== 'approved') {
+      await db.query('ROLLBACK');
+      return sendError(res, 'Credit note must be approved before applying', 'VALIDATION_ERROR', 422);
+    }
+    if (cn.invoice_id) {
+      const inv = await db.query(
+        'SELECT total, COALESCE(paid_amount,0) AS paid FROM invoices WHERE id=$1 AND org_id=$2 FOR UPDATE',
+        [cn.invoice_id, req.orgId]
+      );
+      if (inv.rows.length) {
+        const newPaid = Math.min(
+          parseFloat(inv.rows[0].paid) + parseFloat(cn.total),
+          parseFloat(inv.rows[0].total)
+        );
+        await db.query('UPDATE invoices SET paid_amount=$1, updated_at=NOW() WHERE id=$2', [newPaid, cn.invoice_id]);
+      }
+    }
+    if (cn.customer_id) {
+      await db.query(
+        'UPDATE customers SET outstanding = GREATEST(0, outstanding - $1), updated_at=NOW() WHERE id=$2',
+        [parseFloat(cn.total), cn.customer_id]
+      );
+    }
+    await db.query(
+      "UPDATE credit_notes SET status='applied', applied_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
+      [req.params.id]
+    );
+    await db.query('COMMIT');
     sendSuccess(res, null);
   } catch (err) {
+    await db.query('ROLLBACK').catch(() => {});
     console.error('Apply credit note error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });
 
-// ── Reject ────────────────────────────────────────────────────────────────────
+// ── Reject
 router.patch('/:id/reject', requireAuth, async (req, res) => {
   try {
     await db.query(
-      `UPDATE credit_notes SET status='rejected', updated_at=CURRENT_TIMESTAMP
-       WHERE id=$1 AND org_id=$2`,
+      "UPDATE credit_notes SET status='rejected', updated_at=CURRENT_TIMESTAMP WHERE id=$1 AND org_id=$2",
       [req.params.id, req.orgId]
     );
     sendSuccess(res, null);
@@ -172,11 +205,11 @@ router.patch('/:id/reject', requireAuth, async (req, res) => {
   }
 });
 
-// ── Delete ────────────────────────────────────────────────────────────────────
+// ── Delete
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     await db.query(
-      `UPDATE credit_notes SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1 AND org_id=$2`,
+      'UPDATE credit_notes SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1 AND org_id=$2',
       [req.params.id, req.orgId]
     );
     sendSuccess(res, null);

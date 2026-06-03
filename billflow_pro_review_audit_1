@@ -1,0 +1,597 @@
+# BillFlow Pro — Enterprise CTO / Investor / Product Review
+
+> **Audited stack:** Express + PostgreSQL backend · React 18 + Vite frontend · Zustand · TanStack Query · Recharts · Vercel deployment target  
+> **Audit date:** June 2026 · **Auditor persona:** CTO + CFO + Investor + ERP Auditor
+
+---
+
+## SECTION 1 — Executive Scorecard
+
+| Dimension | Score | Rationale |
+|---|---|---|
+| **Overall Product** | **6.1 / 10** | Feature-rich for a v1, but critical financial accuracy gaps and zero test coverage block production |
+| **Production Readiness** | **3.5 / 10** | Hardcoded dev bypass in production code path, no CORS config, no helmet, rate limiters defined but **not wired to routes** |
+| **Market Readiness** | **5.0 / 10** | UI is polished; missing GST e-filing, TDS, multi-warehouse, and payment gateway integrations competitors have |
+| **Engineering Quality** | **5.5 / 10** | Good schema design, strong migrations; but validators defined yet unused, in-memory filtering instead of SQL, duplicate route folders |
+| **Scalability** | **4.0 / 10** | Single DB pool (max:10), no caching layer, no queue, in-process filtering of full table scans will collapse at ~500 orgs |
+| **Security** | **4.5 / 10** | JWT secret hardcoded fallback, no HTTPS-only cookie, no CORS, dev bypass reachable via env var toggle, Zod validators imported but not applied |
+| **UX** | **7.5 / 10** | Lazy-loading, role guards, error boundaries, lucide icons — genuinely above-average for an indie ERP |
+| **Investor Attractiveness** | **5.0 / 10** | Promising surface area; zero tests + financial accuracy risks = not fundable today |
+
+---
+
+## SECTION 2 — Product Understanding
+
+**What it is:** A GST-first Indian SMB accounting & billing platform. Covers the full AR/AP lifecycle: quotations → invoices → payments → credit notes on the sales side; vendor bills → goods returns → AP credit memos on the purchase side. Adds inventory, recurring billing, warranty claims, banking/cash ledger, and a rich reports layer (P&L, Balance Sheet, Trial Balance, Aged Receivables, GST Summary).
+
+**Target customer:** Indian MSMEs — manufacturers, distributors, service firms — currently on Tally, spreadsheets, or Vyapar.
+
+**Why they would switch:**
+- Modern browser-first UX vs. Tally's 1990s desktop paradigm
+- Built-in warranty tracking (unique)
+- Procurement analysis dashboard
+- Cheap SaaS vs. Tally Prime Gold licensing
+
+**Complete customer journey:**
+Register → Create Org → Add Products/Vendors → Raise Quotation → Convert to Invoice → Collect Payment → File GST → Run P&L → Monitor Aged Receivables → Reconcile Bank
+
+---
+
+## SECTION 3 — Market Positioning
+
+### Head-to-Head
+
+| Feature | BillFlow | Zoho Books | Tally Prime | Vyapar | QuickBooks IN |
+|---|---|---|---|---|---|
+| GST E-filing (GSTR-1/3B) | ❌ Missing | ✅ | ✅ | ✅ Partial | ✅ |
+| TDS compliance | UI only, no calc | ✅ | ✅ | ❌ | ✅ |
+| Multi-currency | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Recurring billing | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Warranty tracking | ✅ Unique | ❌ | ❌ | ❌ | ❌ |
+| Procurement analysis | ✅ | Partial | ❌ | ❌ | ❌ |
+| Bank reconciliation | UI mock | ✅ Full | ✅ Full | Partial | ✅ Full |
+| Payment gateway | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Mobile app | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Offline mode | ❌ | ❌ | ✅ | ✅ | ❌ |
+| AI/smart features | ❌ | Limited | ❌ | ❌ | Limited |
+
+### SWOT
+
+**Strengths:** Modern stack, GST-native schema, warranty module (genuine differentiator), AP module depth (down payments + reserve invoices), role-based access, clean lazy-load UX  
+**Weaknesses:** No GSTR-1/3B generation, zero tests, dev backdoor in production code, validators unused, no payment gateway, bank reconciliation is UI-only  
+**Opportunities:** 14M+ Indian GST-registered SMBs, Tally's aging UX, WhatsApp invoice delivery, AI cash flow prediction  
+**Threats:** Zoho Books adding more SMB tiers, Vyapar expanding to web, Razorpay/Stripe building native billing suites
+
+---
+
+## SECTION 4 — Feature Audit
+
+### Sales Module
+
+| Sub-module | Completeness | Critical Gaps | Risk |
+|---|---|---|---|
+| Quotations | 7/10 | No e-signature, no PDF template config | Medium |
+| Invoices | 7/10 | `invoices.status` allows 'void' in SQL queries but not in CHECK constraint — data inconsistency | **HIGH** |
+| Recurring Billing | 6/10 | `next_run` updated manually — no scheduler/cron; template executes 0 actual invoices automatically | **HIGH** |
+| Credit Notes | 7/10 | `applied_at` tracked but no ledger debit to reduce AR balance — creates phantom AR | **CRITICAL** |
+| GST | 6/10 | Tax captured at line level, but no IGST/CGST/SGST split by place of supply — GSTR-1 incompatible | **CRITICAL** |
+
+### Purchasing Module
+
+| Sub-module | Completeness | Critical Gaps | Risk |
+|---|---|---|---|
+| AP Invoices | 8/10 | No 3-way match (PO → GR → Invoice) | Medium |
+| Down Payments | 7/10 | No auto-offset against AP invoice at settlement | High |
+| Goods Returns | 8/10 | `stock_adjusted` flag exists but stock decrement not triggered from route | **HIGH** |
+| Credit Memos | 7/10 | `applied_amount` tracked but no AP balance debit | High |
+
+### Inventory Module
+
+| Sub-module | Completeness | Gaps |
+|---|---|---|
+| Products | 8/10 | `product_categories` and `price_lists` tables exist in statements but not in schema migrations — will crash on fresh install |
+| Stock Movements | 7/10 | `insertStockMovement` prepared but no route calls it on invoice creation |
+| Warehouses | 3/10 | `warehouse` field is a text string — no warehouse table, no multi-location stock |
+| Valuation | 5/10 | No FIFO/LIFO/WAC — `stock_qty × purchase_price` is only method |
+
+### Banking Module
+
+| Sub-module | Completeness | Gaps |
+|---|---|---|
+| Bank Accounts | 5/10 | No DB table for bank accounts — frontend-only |
+| Reconciliation | 3/10 | No import of bank statements (CSV/OFX) — reconciliation is display only |
+| Cash Forecast | 5/10 | Rule-based projection, no ML |
+| Cash Ledger | 7/10 | Solid SQL union of payments + expenses |
+
+### Reports Module
+
+| Report | Completeness | Accuracy Risk |
+|---|---|---|
+| P&L | 6/10 | Revenue = invoice totals (including drafts in some queries), not actual cash received — **overstates revenue** |
+| Balance Sheet | 5/10 | `getBalanceSheetAssets` does a CROSS JOIN on payments subquery — returns wrong totals if there are multiple invoice rows |
+| Aged Receivables | 8/10 | References `i.amount_paid` column that **does not exist** in the invoices schema — will throw 500 on every call |
+| Trial Balance | 5/10 | No actual double-entry ledger — assembled from denormalized SUM queries; debits ≠ credits possible |
+| Cash Flow | 7/10 | Only tracks payments table (inflows) and expenses (outflows) — AP payments invisible |
+| GST Summary | 6/10 | No IGST/CGST/SGST split, `getGSTPaid` uses expense.amount × gst_rate — not line-item-level accuracy |
+
+---
+
+## SECTION 5 — Financial System Accuracy Review
+
+> Acting as a Chartered Accountant + ERP Auditor
+
+### Critical Accounting Defects
+
+**1. No Double-Entry Ledger (CRITICAL)**  
+The system has no `journal_entries` or `ledger` table. Every financial report is assembled from ad-hoc aggregates of raw business tables. This means:
+- Debits and credits are never validated to balance
+- Audit trail cannot reconstruct the books at any point in time
+- Balance Sheet assets ≠ liabilities + equity is structurally guaranteed at scale
+
+**2. `amount_paid` Column Does Not Exist (CRITICAL)**  
+`getAgedReceivables` and `getBalanceSheetAssets` reference `i.amount_paid` and `p.status`. The `invoices` table has no `amount_paid` column — payment totals must be derived from the `payments` table via JOIN. These queries will throw `column "amount_paid" does not exist` on every call in production.
+
+**3. GST IGST/CGST/SGST Split Missing (CRITICAL for compliance)**  
+Indian GST law requires:
+- Inter-state sales → IGST
+- Intra-state sales → CGST + SGST (50/50)
+
+The `invoice_items.tax_rate` stores a single rate (e.g., 18%). There is no `igst_amount`, `cgst_amount`, `sgst_amount` breakdown anywhere in the schema. GSTR-1 and GSTR-3B filings are impossible without this. This is a compliance showstopper.
+
+**4. Credit Note Application Doesn't Reduce AR (HIGH)**  
+When a credit note is "applied," the code sets `applied_at` and changes status to `applied`. It does not debit the original invoice's outstanding balance, does not reduce `customers.outstanding`, and does not generate a ledger entry. The AR balance is wrong after every credit note.
+
+**5. Payment Allocation Logic is Absent (HIGH)**  
+`payments` table has `invoice_id` (one-to-one). There is no partial payment tracking, no payment allocation across multiple invoices. A payment of ₹5,000 against a ₹10,000 invoice leaves no record of the ₹5,000 remaining balance on the invoice itself — the invoice status must be manually changed to 'paid'.
+
+**6. Recurring Invoices Are a Stub (HIGH)**  
+The `recurring_invoices.template_data` JSONB stores invoice data and `next_run` stores the scheduled date. But there is no cron job, no scheduler, no background worker. Recurring invoices never auto-generate. The feature is 100% UI with 0% backend execution.
+
+**7. Stock Movement on Invoice Not Triggered (HIGH)**  
+`insertStockMovement` is prepared in inventory statements. The invoice creation route (`POST /invoices`) does not call it. Selling a product does not reduce `products.stock_qty`. Inventory is inaccurate from the first sale.
+
+**8. Sequence-Based Document Numbers are Race-Condition Prone (MEDIUM)**  
+`genDocNo()` uses `COUNT(*) + 1` to generate document numbers. Under concurrent inserts, two simultaneous requests get the same count and produce duplicate document numbers. Should use `SELECT nextval('sequence_name')` or a DB sequence.
+
+---
+
+## SECTION 6 — Frontend Engineering Review
+
+### Architecture Assessment
+
+**Positives:**
+- Lazy-loading on every route — excellent bundle strategy
+- ErrorBoundary at app root
+- Role-based route guards (`RequireAuth` + `ROLE_PAGE_ACCESS`)
+- Zustand for lightweight auth/toast/theme state
+- TanStack Query for server state — correct separation
+- React Hook Form + Zod resolvers — correct pattern
+
+**Issues:**
+
+| Issue | Severity |
+|---|---|
+| `tsconfig.json` exists but all files are `.jsx`/`.js` — TypeScript configured but never used | Medium |
+| `BankingPage2` is literally `lazy(() => import('@/features/banking/BankingPage'))` — duplicate import, dead alias | Low |
+| `/balance-sheet` and `/financial-reports` both render `<ReportsPage>` — routing confusion, no deep-link to specific report | Medium |
+| 25 feature folders with significant naming inconsistency: `goods/`, `goods-returns/`, `purchasing/`, `purchases/`, `procurement/` — overlapping domain boundaries | Medium |
+| No React Query `staleTime` defaults — every navigation triggers a refetch | Medium |
+| Auth store not persisted — hard page refresh logs user out (no hydration from cookie) | **High** |
+| No form-level dirty-state guards — navigating away silently discards edits | Medium |
+
+**Technical Debt Score: 6/10** (manageable but accumulating)  
+**Maintainability Score: 6.5/10**
+
+---
+
+## SECTION 7 — Backend Engineering Review
+
+### What's Good
+- Service-layer separation: `routes/` → `db/statements/` pattern is clean
+- Soft deletes (`deleted_at`) on all entities
+- Zod validators defined — schema thinking is sound
+- Rate limiters defined with correct configurations
+- `ap.js` route is well-structured with proper type validation and logging
+
+### Critical Issues
+
+**1. Rate limiters are NOT applied to any route**  
+`rateLimiter.js` exports `loginLimiter`, `apiLimiter`, etc. but `server.js` and `routes/index.js` never `require` or `use` them. The auth endpoint has zero rate limiting in production. Brute-force attack surface is fully open.
+
+**2. Zod validators are NOT applied to most routes**  
+`validators.js` defines complete schemas for invoices, customers, vendors, expenses, payments. But `routes/invoices.js`, `routes/customers.js`, etc. do not import or use them. Manual field checks are the only validation (e.g., `if (!number || !customer_name...)`).
+
+**3. JWT secret has hardcoded fallback**
+```js
+const JWT_SECRET = process.env.JWT_SECRET || 'billflow-pro-secret-key-123';
+```
+If `JWT_SECRET` env var is missing in production, a public known secret signs all tokens. This is a complete authentication bypass.
+
+**4. No CORS middleware**  
+`server.js` has no `cors()` middleware. Every browser cross-origin request is blocked or uncontrolled. The API cannot be called from any domain other than its own.
+
+**5. No Helmet.js**  
+No HTTP security headers: no `X-Content-Type-Options`, no `X-Frame-Options`, no `Content-Security-Policy`, no `Strict-Transport-Security`.
+
+**6. Dev bypass in production-reachable code path**
+```js
+if (process.env.NODE_ENV !== 'production' && email === 'admin@ozofi.com' && password === 'Admin@ozofi!')
+```
+The bypass credentials are hardcoded and publicly visible in the source. If `NODE_ENV` is not explicitly set to `'production'` on the server (common misconfiguration), this bypass is live.
+
+**7. Cookie not `Secure` in production**
+```js
+res.cookie('bf_session', token, { httpOnly: true, maxAge: ..., sameSite: 'lax' })
+```
+Missing `secure: true` — cookie is transmitted over HTTP, enabling session hijacking on any non-HTTPS connection.
+
+**8. `module.exports = router` placed before route registrations in `reports.js`**  
+Lines 66–182 of `reports.js` define routes AFTER `module.exports = router` on line 64. All routes after line 64 (aged-receivables, P&L, cash-flow, GST summary, etc.) are **unreachable** — they will 404 in production. This is a severe bug.
+
+---
+
+## SECTION 8 — Database Review
+
+### Schema Strengths
+- `NUMERIC(12,2)` for all money fields — correct
+- Soft delete pattern consistent
+- `org_id` on every table — correct multi-tenant foundation
+- Composite indexes on high-frequency query patterns
+- Foreign key constraints with appropriate ON DELETE behaviors
+
+### Critical Gaps
+
+| Gap | Risk | Impact |
+|---|---|---|
+| `product_categories` and `price_lists` referenced in `statements/inventory.js` but not in any schema migration | **CRITICAL** — crash on fresh install | All product category features broken |
+| `ap_invoices.balance_due` referenced in aging/balance sheet queries but column not in schema | **CRITICAL** — 500 error on reports | Entire AP aging report broken |
+| `invoices.amount_paid` referenced in reports but not in schema | **CRITICAL** | Aged receivables 500 |
+| `stock_movements` table referenced in statements but not guaranteed by migrations | HIGH | Stock tracking silently broken |
+| No `journal_entries` / `ledger` table | HIGH | No double-entry, no audit reconstruction |
+| No `bank_accounts` table | HIGH | Banking module is frontend-only |
+| `organizations.next_inv_no` incremented with `bumpInvNumber` but no SELECT FOR UPDATE — race condition | Medium | Duplicate invoice numbers |
+| No `deleted_at` index on high-traffic tables | Medium | Full scans on soft-delete filter |
+| `sessions` table exists but JWT is used instead — dead table | Low | Wasted schema |
+
+### Scaling Projections
+
+| Scale | Status | Bottleneck |
+|---|---|---|
+| **100 orgs / ~10K records** | ✅ Comfortable | None |
+| **1,000 orgs / ~1M records** | ⚠️ Degraded | In-memory filtering in AP routes loads full org table into Node.js memory; report queries do cross-joins without date filters |
+| **10,000 orgs / ~10M records** | ❌ Collapse | `getInvoices` returns ALL invoices for an org with no pagination; `getTrialBalance` runs 6 full-table UNIONs; connection pool of 10 exhausted |
+
+**Required for 1K+ orgs:** Pagination on all list endpoints, date-range filters pushed to SQL, Redis cache for report queries, read replicas.
+
+---
+
+## SECTION 9 — Security Assessment
+
+### Classified Findings
+
+| Severity | Finding | Mitigation |
+|---|---|---|
+| **CRITICAL** | JWT fallback secret hardcoded in source | Throw on missing `JWT_SECRET` env var; rotate immediately |
+| **CRITICAL** | All report routes unreachable (module.exports before route definitions) | Move export to end of file |
+| **CRITICAL** | Rate limiters not applied — brute-force open | Wire `loginLimiter` to auth routes in `server.js` |
+| **CRITICAL** | `product_categories`/`price_lists`/`balance_due`/`amount_paid` columns missing — crash on prod | Add migration 006 to create missing columns/tables |
+| **HIGH** | Dev bypass credentials hardcoded and publicly visible | Move to env-only, add IP allowlist, remove from source |
+| **HIGH** | No CORS configuration | Add `cors()` with explicit origin whitelist |
+| **HIGH** | Cookie missing `Secure` flag | `secure: process.env.NODE_ENV === 'production'` |
+| **HIGH** | No Helmet.js | Add `helmet()` as first middleware |
+| **HIGH** | Zod validators defined but not used on any route | Apply `validate(schema)` middleware to all mutation routes |
+| **HIGH** | No input sanitization on free-text fields (notes, description) — XSS vector | DOMPurify on frontend + Zod `.transform()` strip on backend |
+| **MEDIUM** | `org_id` taken from JWT — but update routes don't verify ownership on all paths | Add explicit org_id WHERE clause to all UPDATE/DELETE (mostly done, audit remaining) |
+| **MEDIUM** | No refresh token / token rotation | Implement short-lived access + refresh token pair |
+| **MEDIUM** | Console.log leaks internal error details | Replace with structured logger (pino/winston) |
+| **LOW** | Swagger endpoint exposed in production | Gate behind auth or disable in prod |
+| **LOW** | `sessions` table unused — ghost artifact | Drop or use properly |
+
+---
+
+## SECTION 10 — Scalability Assessment
+
+**Current hard limits:**
+- DB pool: 10 connections max — collapses under ~50 concurrent users
+- No pagination on any list endpoint — `getInvoices` returns the entire invoice history
+- In-memory filtering (AP routes: status, vendor, date, search all filtered in JS after full table fetch)
+- No caching — dashboard summary runs 10 parallel DB queries on every page load
+- Report queries are unbounded: Trial Balance runs 6 UNIONs with no date filter
+- No job queue — recurring billing, email delivery are synchronous (or non-existent)
+
+**Scaling roadmap required:**
+1. Pagination (cursor-based) on all list endpoints — before 500 orgs
+2. Redis for dashboard/report caching (5-minute TTL) — before 200 concurrent users
+3. DB pool: raise to 50 + PgBouncer — before 1,000 orgs
+4. Read replicas for all report queries — before 5,000 orgs
+5. Background job queue (BullMQ/Temporal) for recurring billing — required for feature correctness
+6. Horizontal Express scaling (PM2 cluster → Kubernetes) — before 10,000 orgs
+
+---
+
+## SECTION 11 — AI Opportunity Assessment (ROI-Ranked)
+
+| Rank | Feature | ROI | Effort | Description |
+|---|---|---|---|---|
+| 1 | **Smart Reconciliation** | 🔥 Extreme | Medium | Auto-match bank statement rows to payments using fuzzy amount+date matching — eliminates manual reconciliation |
+| 2 | **Cash Flow Prediction** | 🔥 High | Medium | ARIMA/ML on historical payment patterns → 30/60/90-day cash forecast with confidence intervals |
+| 3 | **Overdue Collections Copilot** | 🔥 High | Low | GPT-generated follow-up emails per customer aging bucket; WhatsApp integration for Indian SMBs |
+| 4 | **Natural Language Queries** | High | High | "Show me customers who owe more than ₹50K and haven't paid in 60 days" → SQL → table/chart |
+| 5 | **Customer Risk Score** | High | Medium | Churn/default probability from payment velocity, credit limit utilization, dispute history |
+| 6 | **AI Invoice Data Extraction** | High | Low | Upload vendor invoice PDF → auto-populate AP Invoice form via Gemini Vision |
+| 7 | **Anomaly Detection** | Medium | Medium | Flag unusual expense patterns, duplicate payments, vendor price spikes |
+| 8 | **Financial Insights Digest** | Medium | Low | Weekly GPT-generated P&L narrative: "Revenue up 12%, top cost center is travel (+40%)" |
+| 9 | **Vendor Risk Scoring** | Medium | High | Late delivery rate, price consistency, dispute history → vendor scorecard |
+| 10 | **Finance Copilot (Chat)** | Long-term | Very High | Full NL interface for accounting questions, report generation, journal entry explanation |
+
+**Highest immediate ROI:** Smart reconciliation + collections copilot — zero new infrastructure, direct user pain point, India-specific (UPI/NEFT references make fuzzy matching highly accurate).
+
+---
+
+## SECTION 12 — UX & Design Review
+
+**Strengths:**
+- Lazy loading = fast perceived performance
+- Role-based page access is production-grade
+- Toast system is clean
+- Error boundary prevents full-app crashes
+- Lucide icons consistent throughout
+
+**Gaps:**
+- No empty states — a fresh account sees blank tables with no onboarding prompts
+- Mobile: React Router SPA with 25+ sidebar links — no responsive nav, no bottom tab bar
+- No keyboard shortcuts (Ctrl+N for new invoice is table stakes in ERP)
+- Quotation → Invoice conversion UX is unclear (no visual workflow progress)
+- Bank reconciliation page exists but has no bank statement import — misleads users into thinking it's functional
+- Dashboard KPIs may show wrong values due to the `amount_paid` column bug
+- No inline PDF preview of invoices (users must rely on print dialog)
+- No bulk actions (mark 20 invoices as sent, bulk export)
+- Accessibility: no `aria-label` on icon-only buttons, no focus management in modals
+
+**ERP UX Strategy recommendation:** Adopt a "Command Center" pattern — global search (⌘K), quick-create floatie, contextual action panel, guided onboarding wizard for new orgs. Competitors have none of this.
+
+---
+
+## SECTION 13 — Technical Debt Analysis
+
+| Debt Item | Priority | Effort |
+|---|---|---|
+| `reports.js` — routes after `module.exports` (all reports 404) | 🔴 P0 | 5 min |
+| Missing DB columns: `amount_paid`, `balance_due`, `product_categories`, `price_lists` | 🔴 P0 | 2 hrs |
+| Wire rate limiters to routes | 🔴 P0 | 30 min |
+| Apply Zod validators to all mutation routes | 🔴 P0 | 4 hrs |
+| Add JWT_SECRET null guard | 🔴 P0 | 5 min |
+| Add `Secure` flag to session cookie | 🔴 P0 | 5 min |
+| Add CORS + Helmet | 🔴 P0 | 30 min |
+| Remove hardcoded dev bypass credentials from source | 🔴 P0 | 1 hr |
+| Implement IGST/CGST/SGST split on invoice items | 🔴 P1 | 1 day |
+| Trigger stock movement on invoice create/update | 🔴 P1 | 4 hrs |
+| Pagination on all list endpoints | 🔴 P1 | 3 days |
+| Fix credit note application to debit AR | 🔴 P1 | 1 day |
+| Implement recurring invoice scheduler | 🔴 P1 | 2 days |
+| Rename/consolidate duplicate feature folders | 🟡 P2 | 2 hrs |
+| Replace `COUNT(*)+1` doc numbers with DB sequences | 🟡 P2 | 4 hrs |
+| Add Suspense boundary per-section, not just per-page | 🟡 P2 | 4 hrs |
+| Remove dead `sessions` table or use it | 🟡 P3 | 1 hr |
+| Enable TypeScript properly (all files are `.jsx` despite tsconfig) | 🟡 P3 | 1 week |
+| Add structured logging (pino) replacing console.log | 🟡 P3 | 1 day |
+| Write unit + integration tests | 🟡 P3 | 2 weeks |
+
+---
+
+## SECTION 14 — DevOps & Infrastructure Review
+
+**Current state:**
+- Vercel target: `api/index.js` is a 64-byte stub — backend is **not actually deployed** via this config
+- No CI/CD pipeline (GitHub Actions absent)
+- No monitoring (no Sentry, no Datadog, no health endpoint)
+- No structured logging — `console.log` will disappear in serverless
+- No database backups configured
+- No environment-specific configs (staging vs production)
+- `nodemon` in devDependencies — correct; but no process manager (PM2) for production
+- `concurrently` for local dev is fine
+
+**Production-ready infrastructure recommendation:**
+```
+Frontend: Vercel (static) or Cloudflare Pages
+Backend:  Railway / Render / Fly.io (persistent Node process, not serverless — needs long-running connections)
+Database: Supabase (Postgres) or Neon with connection pooling
+Cache:    Upstash Redis (serverless-compatible)
+Queue:    Inngest or BullMQ on Railway
+Logs:     Axiom or Logtail
+Errors:   Sentry
+CI/CD:    GitHub Actions → test → migrate → deploy
+```
+
+**Health endpoint:** Add `GET /api/health` returning DB ping status, version, uptime — required for load balancer and monitoring.
+
+---
+
+## SECTION 15 — Testing Strategy
+
+**Current state:** Zero tests. `package.json` test scripts echo placeholder strings.
+
+### Complete Testing Pyramid
+
+```
+┌─────────────────────────────┐
+│     E2E (Playwright)        │  5% — Happy paths: register → invoice → pay
+├─────────────────────────────┤
+│  Integration (Supertest)    │  25% — API route contracts, auth, RBAC
+├─────────────────────────────┤
+│    Unit (Jest/Vitest)       │  70% — calcItemTotals(), genDocNo(), validators, tax splits
+└─────────────────────────────┘
+```
+
+**Priority unit tests (write first):**
+1. `calcItemTotals()` — GST math accuracy
+2. `genDocNo()` — concurrency safety
+3. Invoice total = subtotal - discount + tax
+4. Credit note application reduces AR
+5. Stock movement triggered on invoice
+
+**Integration tests (write second):**
+1. `POST /auth/login` — rate limit enforced
+2. `POST /invoices` — org isolation (orgA cannot see orgB's invoices)
+3. `GET /reports/aged-receivables` — does not 500
+4. `GET /reports/pl-statement` — returns correct month grouping
+
+**Tools:** Jest (backend) · Vitest (frontend) · Supertest (API) · Playwright (E2E) · `@faker-js/faker` for test data
+
+---
+
+## SECTION 16 — 90-Day Roadmap
+
+### Phase 1 — Critical Fixes (Days 1–14)
+*Everything here is a production blocker*
+
+| Task | Priority | Effort | Business Impact |
+|---|---|---|---|
+| Fix `reports.js` module.exports placement | P0 | 5 min | All reports return 200 |
+| Add missing DB columns (migration 006) | P0 | 2 hrs | Aged receivables, balance sheet work |
+| Wire rate limiters to all routes | P0 | 30 min | Brute-force protection |
+| Apply Zod validators to mutation routes | P0 | 4 hrs | Input security |
+| JWT_SECRET null-guard + rotate default | P0 | 30 min | Auth security |
+| Add `secure`, `sameSite: strict` to cookie | P0 | 5 min | Cookie security |
+| Add CORS + Helmet | P0 | 1 hr | Browser security headers |
+| Remove dev bypass from source / env-gate it | P0 | 1 hr | Credential exposure |
+| Health endpoint + Sentry error tracking | P0 | 2 hrs | Observability |
+| Trigger stock movement on invoice create | P1 | 4 hrs | Inventory accuracy |
+| Fix credit note AR deduction | P1 | 1 day | Financial accuracy |
+
+### Phase 2 — Architecture (Days 15–45)
+
+| Task | Priority | Effort | ROI |
+|---|---|---|---|
+| IGST/CGST/SGST schema + calculation | P1 | 3 days | GST compliance — unlocks 14M TAM |
+| Pagination (cursor-based) on all list endpoints | P1 | 3 days | Scalability |
+| Recurring invoice scheduler (cron via `node-cron`) | P1 | 2 days | Feature parity with Zoho |
+| Redis caching for reports (5 min TTL) | P2 | 2 days | Performance |
+| Bank accounts DB table + reconciliation MVP | P2 | 3 days | Feature completeness |
+| Payment allocation (partial payments, multi-invoice) | P2 | 2 days | Financial accuracy |
+| Replace COUNT-based doc numbers with DB sequences | P2 | 4 hrs | Data integrity |
+| Structured logging (pino) | P2 | 1 day | Ops |
+| Unit + integration test suite (target 60% coverage) | P1 | 2 weeks | Trust |
+
+### Phase 3 — AI Enhancements (Days 46–70)
+
+| Feature | Effort | Expected ROI |
+|---|---|---|
+| AI Invoice PDF extraction (Gemini Vision → AP Invoice form) | 1 week | Saves 5 min per AP invoice — direct time ROI |
+| Smart bank reconciliation (fuzzy match by amount+date+ref) | 1 week | Eliminates manual reconciliation — NPS spike |
+| Overdue collections AI email generator | 3 days | Reduces DSO — measurable revenue impact |
+| Cash flow prediction (30/60/90-day) | 1 week | Premium feature — justifies price upgrade |
+
+### Phase 4 — Scale & Enterprise (Days 71–90)
+
+| Feature | Target |
+|---|---|
+| GSTR-1 / GSTR-3B report generation (JSON export) | GST-compliant |
+| Multi-warehouse inventory | Manufacturing/distribution segment |
+| Payment gateway integration (Razorpay) | Payment collection in-app |
+| Mobile-responsive layout | 60% of Indian SMB users on mobile |
+| WhatsApp invoice delivery (Twilio/WATI) | India-native distribution channel |
+| Audit log UI with full field-level diff | Enterprise requirement |
+| Data export (Excel/CSV) on all modules | Accountant requirement |
+
+---
+
+## SECTION 17 — Investor Review
+
+**Would I invest today?** No — but conditionally yes after Phase 1+2 (6–8 weeks).
+
+**Valuation range (post-fix, pre-revenue):** $500K–$1.5M angel round (India market). At 100 paying customers (₹999/mo): ~₹12L ARR → 10–15x ARR = ₹1.2–1.8Cr ($150–225K). At 1,000 customers: ₹2Cr ARR → fundable Series A in India SaaS context.
+
+**Biggest strengths:**
+1. Feature surface area exceeds Vyapar at launch
+2. AP module depth (down payments + reserve invoices) is enterprise-grade
+3. Warranty tracking is a genuine market differentiator
+4. GST-native schema — hard to retrofit in competitors
+
+**Biggest risks:**
+1. Financial data accuracy bugs — a billing tool with wrong numbers is a liability, not a product
+2. Zero tests — every feature shipped is a regression risk
+3. GSTR compliance gap — Indian accountants will reject any tool that can't generate GSTR-1
+4. No payment gateway — can't collect money inside the product
+
+**Market opportunity:** 14M+ GST-registered Indian SMBs. Tally has 7M+ licenses (mostly desktop). SaaS penetration <10%. Zoho Books is enterprise-priced for true SMBs. Gap exists.
+
+**Defensibility:** Medium. Code can be replicated. Moat must come from: GST data lock-in, customer financial history, AI features, WhatsApp-native workflows.
+
+---
+
+## SECTION 18 — Final Verdict
+
+### Scores Recap
+| | Score |
+|---|---|
+| Overall | 6.1/10 |
+| Production Readiness | 3.5/10 |
+| Financial Accuracy | 4.0/10 |
+| Engineering Quality | 5.5/10 |
+
+### Top 10 Critical Issues
+
+1. 🔴 All report routes after `module.exports` in `reports.js` are **unreachable (404)**
+2. 🔴 `invoices.amount_paid` and `ap_invoices.balance_due` don't exist — aged receivables and balance sheet crash
+3. 🔴 Rate limiters defined but **not wired** — zero brute-force protection
+4. 🔴 Zod validators defined but **not applied** — all mutation routes accept arbitrary input
+5. 🔴 JWT fallback secret `'billflow-pro-secret-key-123'` is hardcoded in source
+6. 🔴 No IGST/CGST/SGST split — GSTR-1/3B filing is impossible
+7. 🔴 Credit note application doesn't reduce accounts receivable balance
+8. 🔴 Stock movements not triggered on invoice creation — inventory perpetually wrong
+9. 🔴 Recurring invoices have no scheduler — the feature does nothing
+10. 🔴 `product_categories` and `price_lists` tables missing from migrations — crash on fresh install
+
+### Top 10 Competitive Advantages
+
+1. ✅ AP module depth (down payments + reserve invoices) rivals Tally
+2. ✅ Warranty claim tracking — zero competitors have this
+3. ✅ Procurement analysis dashboard — unique among Indian SMB tools
+4. ✅ Goods returns with transport carrier + AP adjustment flags
+5. ✅ Role-based access with granular page-level guards
+6. ✅ Modern React 18 + lazy loading = fast UX vs. Tally's desktop
+7. ✅ GST-native schema with HSN codes at line level
+8. ✅ Quotation pipeline with win probability and version tracking
+9. ✅ Multi-currency support
+10. ✅ Vendor document management with storage keys
+
+### Top 10 Highest ROI Features to Build Next
+
+1. Fix report routes (5 minutes, unlocks entire report module)
+2. IGST/CGST/SGST split (3 days, unlocks GST compliance → entire Indian SMB market)
+3. Recurring invoice scheduler (2 days, makes existing feature actually work)
+4. AI PDF invoice extraction (1 week, direct time savings per AP invoice)
+5. Smart bank reconciliation (1 week, eliminates biggest manual accounting pain)
+6. Payment gateway — Razorpay UPI (1 week, closes revenue loop in-product)
+7. GSTR-1 JSON export (1 week, accountant-approved → viral B2B word-of-mouth)
+8. AI overdue collections emails (3 days, measurable DSO reduction)
+9. WhatsApp invoice delivery (3 days, India-native distribution)
+10. Cash flow prediction (1 week, premium tier justification)
+
+### Recommended Product Vision
+
+> "BillFlow Pro is the first GST-native, AI-augmented billing platform built for how Indian MSMEs actually work — UPI payments, WhatsApp invoices, and automated GST filing in one product."
+
+---
+
+## CEO-Level Recommendation
+
+**Do not launch publicly. Do not add features. Spend 4 weeks here:**
+
+**Week 1:** Fix the 10 critical issues above. Every single one is ≤4 hours of work. None require architectural changes. They collectively make the product from "dangerous to use" to "safe to use."
+
+**Week 2:** Write tests for core financial logic. A billing platform with no test coverage is a liability lawsuit waiting to happen. You need to be able to prove your numbers are correct.
+
+**Week 3:** Implement IGST/CGST/SGST split + GSTR-1 export. This is the single biggest unlock for Indian market penetration. Accountants are the buyer. Without GSTR-1, accountants will block purchase.
+
+**Week 4:** Recurring invoices scheduler + payment gateway (Razorpay). These make the product capable of generating its own revenue.
+
+**After those 4 weeks:** You have a fundable, launchable product. Pursue 10 design partner customers (free pilot, hands-on support). Collect testimonials. Raise ₹1–2Cr pre-seed from Indian SaaS angels (Blume, 100x, Beenext).
+
+**Do NOT pursue enterprise yet.** Enterprise needs SOC 2, multi-entity, consolidated reports, maker-checker workflows. That's 6–12 months away. SMB growth first.
+
+**Bottom line:** BillFlow has exceptional bones — the AP module alone shows genuine product thinking. But the gap between the UI and the backend reality is serious. Fix the backend first. The market will wait 4 weeks. A wrong billing statement to a customer will not be forgiven.
+
+---
+*Report generated from full static codebase audit: 17 backend route files, 5 schema files, 10 SQL statement files, 5 migration files, App.jsx, 4 Zustand stores, package.json, vercel.json, rateLimiter.js, validators.js, auth.js — June 2026*
