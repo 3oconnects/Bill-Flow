@@ -178,4 +178,42 @@ export const apApi = {
   cancel:       (type, id, reason)  => api.delete(`/ap/${type}/${id}`, { data: { reason } }),
 }
 
+// ── Quotations ───────────────────────────────────
+export const quotationsApi = {
+  list:    ()              => api.get('/quotations'),
+  stats:   ()              => api.get('/quotations/stats'),
+  get:     (id)            => api.get(`/quotations/${id}`),
+  create:  (data)          => api.post('/quotations', data),
+  update:  (id, data)      => api.put(`/quotations/${id}`, data),
+  status:  (id, status)    => api.patch(`/quotations/${id}/status`, { status }),
+  convert: (id)            => api.post(`/quotations/${id}/convert`),
+  remove:  (id)            => api.delete(`/quotations/${id}`),
+}
+
+// ── Credit Notes ─────────────────────────────────
+export const creditNotesApi = {
+  list:    ()     => api.get('/credit-notes'),
+  stats:   ()     => api.get('/credit-notes/stats'),
+  get:     (id)   => api.get(`/credit-notes/${id}`),
+  create:  (data) => api.post('/credit-notes', data),
+  approve: (id)   => api.patch(`/credit-notes/${id}/approve`),
+  apply:   (id)   => api.patch(`/credit-notes/${id}/apply`),
+  reject:  (id)   => api.patch(`/credit-notes/${id}/reject`),
+  remove:  (id)   => api.delete(`/credit-notes/${id}`),
+}
+
+// ── Recurring ────────────────────────────────────
+export const recurringApi = {
+  // Recurring invoices
+  listInvoices:        ()          => api.get('/recurring/invoices'),
+  createInvoice:       (data)      => api.post('/recurring/invoices', data),
+  updateInvoiceStatus: (id, status)=> api.patch(`/recurring/invoices/${id}/status`, { status }),
+  removeInvoice:       (id)        => api.delete(`/recurring/invoices/${id}`),
+  // Purchase templates
+  listTemplates:        ()         => api.get('/recurring/purchase-templates'),
+  createTemplate:       (data)     => api.post('/recurring/purchase-templates', data),
+  updateTemplateStatus: (id, s)    => api.patch(`/recurring/purchase-templates/${id}/status`, { status: s }),
+  removeTemplate:       (id)       => api.delete(`/recurring/purchase-templates/${id}`),
+}
+
 export default api

@@ -4,66 +4,11 @@ import { apApi, vendorsApi, productsApi } from '@/api'
 import { fmt } from '@/lib/utils'
 import { APStatusBadge } from './tabs/APTabShell'
 import { toast } from '@/store/toastStore'
-import { Save, Plus, Trash2, ChevronDown, Info, RotateCcw } from 'lucide-react'
+import { Save, Plus, ChevronDown, RotateCcw } from 'lucide-react'
 
-// ── Config per doc type ────────────────────────────────────────────────
-const TYPE_CONFIG = {
-  'invoices': {
-    title: 'A/P Invoice', hasItems: true,
-    dateField: 'invoice_date', dateLabel: 'Invoice Date',
-    extraFields: ['vendor_inv_no', 'po_ref', 'gr_ref', 'posting_date', 'due_date', 'discount_pct'],
-    submitLabel: 'Submit Invoice',
-  },
-  'down-payments': {
-    title: 'A/P Down Payment', hasItems: false,
-    dateField: 'payment_date', dateLabel: 'Payment Date',
-    extraFields: ['po_ref', 'due_date', 'pct_amount', 'tax_rate'],
-    submitLabel: 'Submit Request',
-  },
-  'credit-memos': {
-    title: 'A/P Credit Memo', hasItems: true,
-    dateField: 'credit_date', dateLabel: 'Credit Date',
-    extraFields: ['ref_invoice_no', 'posting_date', 'reason'],
-    creditReasons: ['Return Goods','Price Adjustment','Quantity Adjustment','Damaged Goods','Duplicate Invoice','Overpayment Adjustment'],
-    submitLabel: 'Submit Memo',
-  },
-  'reserve-invoices': {
-    title: 'A/P Reserve Invoice', hasItems: true,
-    dateField: 'invoice_date', dateLabel: 'Invoice Date',
-    extraFields: ['vendor_ref_no','po_ref','gr_ref','posting_date','due_date','department','cost_center','project','description'],
-    submitLabel: 'Submit Reserve Invoice',
-  },
-}
+import { TYPE_CONFIG, emptyItem, calcItem, blankForm } from './APFormShared'
+import APItemRow from './APItemRow'
 
-function emptyItem() {
-  return { _key: Date.now() + Math.random(), product_id: '', item_code: '', item_name: '', description: '', quantity: 1, unit_price: 0, discount: 0, tax_rate: 18, tax_amount: 0, line_total: 0 }
-}
-
-function calcItem(it) {
-  const base    = (it.quantity || 0) * (it.unit_price || 0)
-  const discAmt = base * ((it.discount || 0) / 100)
-  const taxable = base - discAmt
-  const tax     = taxable * ((it.tax_rate || 0) / 100)
-  return { ...it, tax_amount: +tax.toFixed(2), line_total: +(taxable + tax).toFixed(2) }
-}
-
-function blankForm(cfg) {
-  return {
-    vendor_id: '', vendor_name: '', vendor_gstin: '', currency: 'INR',
-    payment_terms: '', notes: '', amount: 0, tax_rate: 18,
-    ...cfg.extraFields.reduce((a, k) => ({ ...a, [k]: '' }), {}),
-    [cfg.dateField]: fmt.dateInput(new Date()),
-  }
-}
-
-/**
- * Props:
- *   type     – 'invoices' | 'down-payments' | 'credit-memos' | 'reserve-invoices'
- *   docId    – string | null (null = create mode)
- *   onClose  – fn()
- *   onSuccess – fn(id) called after save
- *   onSetFooter – fn(ReactNode) to push header actions into the drawer header
- */
 export default function APForm({ type, docId, onClose, onSuccess, onSetFooter }) {
   const qc     = useQueryClient()
   const cfg    = TYPE_CONFIG[type] || TYPE_CONFIG['invoices']
@@ -74,7 +19,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
   const [showVDrop, setShowVDrop] = useState(false)
   const [vendorQ, setVendorQ]     = useState('')
 
-  // Reset form whenever type or docId changes
   useEffect(() => {
     setForm(blankForm(cfg))
     setItems([emptyItem()])
@@ -150,7 +94,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
     isEdit ? updateMut.mutate(payload) : createMut.mutate(payload)
   }
 
-  // Push action buttons into the drawer header
   useEffect(() => {
     const canSubmit = !isEdit || ['draft','submitted'].includes(existing?.status)
     onSetFooter?.(
@@ -189,11 +132,7 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
 
   return (
     <div className="po-form-standard" style={{ paddingBottom: 40 }}>
-
-      {/* ── Header Meta ─────────────────────────── */}
       <div className="responsive-grid cols-1-1" style={{ gap: 32, marginBottom: 24 }}>
-
-        {/* Left: Vendor */}
         <div className="form-section-compact">
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Vendor</div>
 
@@ -271,7 +210,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
           )}
         </div>
 
-        {/* Right: Doc details */}
         <div className="form-section-compact">
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Details</div>
 
@@ -349,7 +287,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
         </div>
       </div>
 
-      {/* ── Down Payment Amount Fields ─────────── */}
       {!cfg.hasItems && (
         <div className="card" style={{ padding: '16px 18px', marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Payment Details</div>
@@ -382,7 +319,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
         </div>
       )}
 
-      {/* ── Line Items Table ───────────────────── */}
       {cfg.hasItems && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Line Items</div>
@@ -425,7 +361,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
                 </tbody>
               </table>
             </div>
-            {/* Totals */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px',
               borderTop: '1px solid var(--c-border)', background: 'var(--c-surface2)' }}>
               <div style={{ minWidth: 240 }}>
@@ -442,7 +377,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
         </div>
       )}
 
-      {/* ── Notes ─────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: cfg.extraFields.includes('description') ? '1fr 1fr' : '1fr', gap: 14 }}>
         {cfg.extraFields.includes('description') && (
           <div className="form-group">
@@ -459,7 +393,6 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
         </div>
       </div>
 
-      {/* Bottom action bar */}
       {canEdit && (
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--c-border)' }}>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -472,54 +405,5 @@ export default function APForm({ type, docId, onClose, onSuccess, onSetFooter })
         </div>
       )}
     </div>
-  )
-}
-
-// ── Item Row ───────────────────────────────────────────────────────────
-function APItemRow({ item, idx, products, disabled, onUpdate, onRemove, onSelectProduct }) {
-  const [pq, setPQ]       = useState('')
-  const [showDrop, setSD] = useState(false)
-  const filtered = pq ? products.filter(p =>
-    p.name?.toLowerCase().includes(pq.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(pq.toLowerCase())
-  ) : []
-
-  return (
-    <tr>
-      <td style={{ textAlign: 'center', fontSize: 11, color: 'var(--c-text3)' }}>{idx + 1}</td>
-      <td><input className="table-input" value={item.item_code} onChange={e => onUpdate('item_code', e.target.value)} disabled={disabled} style={{ width: '100%' }} /></td>
-      <td style={{ position: 'relative' }}>
-        <input className="table-input" value={item.item_name}
-          onChange={e => { onUpdate('item_name', e.target.value); setPQ(e.target.value); setSD(true) }}
-          onFocus={() => setSD(true)}
-          disabled={disabled} placeholder="Search…" style={{ width: '100%' }} />
-        {showDrop && filtered.length > 0 && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 700, background: 'white',
-            border: '1px solid var(--c-border)', borderRadius: 6, boxShadow: 'var(--shadow-md)',
-            maxHeight: 150, overflowY: 'auto', minWidth: 200 }}>
-            {filtered.slice(0, 8).map(p => (
-              <div key={p.id} className="dropdown-item"
-                style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}
-                onClick={() => { onSelectProduct(p); setPQ(''); setSD(false) }}>
-                <div style={{ fontWeight: 600 }}>{p.name}</div>
-                <div style={{ color: 'var(--c-text2)' }}>{p.sku} · ₹{p.purchase_price}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </td>
-      <td><input className="table-input" value={item.description} onChange={e => onUpdate('description', e.target.value)} disabled={disabled} style={{ width: '100%' }} /></td>
-      <td><input className="table-input text-right" type="number" min="0.001" value={item.quantity} onChange={e => onUpdate('quantity', parseFloat(e.target.value)||0)} disabled={disabled} /></td>
-      <td><input className="table-input text-right" type="number" min="0" value={item.unit_price} onChange={e => onUpdate('unit_price', parseFloat(e.target.value)||0)} disabled={disabled} /></td>
-      <td><input className="table-input text-right" type="number" min="0" max="100" value={item.discount} onChange={e => onUpdate('discount', parseFloat(e.target.value)||0)} disabled={disabled} /></td>
-      <td>
-        <select className="table-input" value={item.tax_rate} onChange={e => onUpdate('tax_rate', parseFloat(e.target.value))} disabled={disabled} style={{ textAlign: 'center' }}>
-          {[0,5,12,18,28].map(r => <option key={r} value={r}>{r}%</option>)}
-        </select>
-      </td>
-      <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--c-text2)', padding: '0 6px' }}>{fmt.currency(item.tax_amount)}</td>
-      <td style={{ textAlign: 'right', fontWeight: 700, padding: '0 6px' }}>{fmt.currency(item.line_total)}</td>
-      {!disabled && <td><button className="action-icon-btn red" onClick={onRemove}><Trash2 size={13} /></button></td>}
-    </tr>
   )
 }

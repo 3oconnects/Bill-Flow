@@ -126,10 +126,10 @@ a { text-decoration: none; color: inherit; }
 .nav-children { height: 0; overflow: hidden; transition: height .2s ease; padding-left: 38px; display: flex; flex-direction: column; gap: 2px; }
 .nav-group.expanded .nav-children { height: auto; padding-top: 4px; padding-bottom: 8px; }
 
-.nav-sub-item { padding: 8px 12px; font-size: 13px; color: rgba(255,255,255,.6); cursor: pointer; border-radius: 4px; transition: all .15s; position: relative; }
+.nav-sub-item { padding: 7px 10px; font-size: 12.5px; color: rgba(255,255,255,.6); cursor: pointer; border-radius: 5px; transition: all .15s; position: relative; display: flex; align-items: center; gap: 7px; }
 .nav-sub-item:hover { color: white; background: rgba(255,255,255,.05); }
-.nav-sub-item.active { color: white; font-weight: 600; }
-.nav-sub-item.active::before { content: ''; position: absolute; left: -14px; top: 50%; transform: translateY(-50%); width: 4px; height: 4px; background: var(--c-primary); border-radius: 50%; }
+.nav-sub-item.active { color: white; font-weight: 600; background: rgba(255,255,255,.08); }
+.nav-sub-item.active::before { content: ''; position: absolute; left: -10px; top: 50%; transform: translateY(-50%); width: 3px; height: 14px; background: var(--c-primary); border-radius: 2px; }
 
 /* Sidebar Collapsed Dropdown handling */
 #sidebar.collapsed .nav-arrow,
@@ -289,6 +289,12 @@ tbody tr:hover .tbl-actions { opacity: 1; }
 .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
 .modal-footer { padding: 14px 24px; border-top: 1px solid var(--c-border); display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; background: var(--c-surface2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 
+/* Compact modal styling */
+.modal-sm .modal-header { padding: 12px 16px; }
+.modal-sm .modal-title { font-size: 13px; }
+.modal-sm .modal-body { padding: 14px 16px; }
+.modal-sm .modal-footer { padding: 10px 16px; }
+
 /* ── FILTER BAR ──────────────────────────────── */
 .filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
 .filter-bar .spacer { flex: 1; }
@@ -338,12 +344,15 @@ tbody tr:hover .tbl-actions { opacity: 1; }
 .toast.info { background: var(--c-primary); }
 
 /* ── SETTINGS ────────────────────────────────── */
-.settings-layout { display: flex; gap: 24px; align-items: flex-start; }
-.settings-sidenav { width: 220px; flex-shrink: 0; background: #fff; border-radius: var(--radius); border: 1px solid var(--c-border); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.settings-layout { display: flex; gap: 24px; align-items: stretch; height: calc(100vh - 64px - 48px); }
+.settings-sidenav { width: 220px; flex-shrink: 0; background: #fff; border-radius: var(--radius); border: 1px solid var(--c-border); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; height: max-content; max-height: 100%; overflow-y: auto; position: sticky; top: 0; transition: width 0.25s ease; }
+.settings-sidenav.collapsed { width: 64px; padding: 12px 6px; }
 .settings-sidenav-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: var(--c-text2); font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; transition: all .15s; width: 100%; }
+.settings-sidenav.collapsed .settings-sidenav-btn { justify-content: center; padding: 10px; gap: 0; }
 .settings-sidenav-btn:hover { background: var(--c-surface2); color: var(--c-text); }
 .settings-sidenav-btn.active { background: #0f2347; color: #fff; }
-.settings-content { flex: 1; min-width: 0; }
+.settings-sidenav-btn.active:hover { background: #0f2347; }
+.settings-content { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; padding-right: 8px; }
 
 /* ── DARK MODE ───────────────────────────────── */
 html.dark {

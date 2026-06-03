@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTopbarStore } from '@/store/topbarStore'
 import { EmptyState } from '@/components/ui'
-import { 
+import {
   ShoppingBag, Plus, ClipboardList, FileCheck, ShieldCheck,
   ChevronLeft, Search
 } from 'lucide-react'
 import PurchaseOrderModal from './PurchaseOrderModal'
+import BlanketAgreementModal from './BlanketAgreementModal'
+import PurchaseRequestModal from './PurchaseRequestModal'
+import PurchaseQuotationModal from './PurchaseQuotationModal'
 
 const PUR_NAV = [
   { label: 'Blanket Agreements', icon: ShieldCheck, id: 'blanket' },
@@ -128,11 +131,34 @@ export default function PurchaseMgmtPage() {
           </div>
         </div>
 
-        <PurchaseOrderModal 
-          isOpen={modalOpen} 
-          onClose={() => setModalOpen(false)} 
-          onSave={() => setModalOpen(false)} 
-        />
+        {activeTab === 'blanket' && (
+          <BlanketAgreementModal
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSave={() => setModalOpen(false)}
+          />
+        )}
+        {activeTab === 'requests' && (
+          <PurchaseRequestModal
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSave={() => setModalOpen(false)}
+          />
+        )}
+        {activeTab === 'quotes' && (
+          <PurchaseQuotationModal
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSave={() => setModalOpen(false)}
+          />
+        )}
+        {activeTab === 'orders' && (
+          <PurchaseOrderModal
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSave={() => setModalOpen(false)}
+          />
+        )}
       </main>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTopbarStore } from '@/store/topbarStore'
-import { Badge, EmptyState } from '@/components/ui'
+import { Badge, EmptyState, PageLoading } from '@/components/ui'
 import {
   RefreshCw, Plus, FileText, CreditCard, Play, Pause, Trash2,
   Search, DollarSign, CheckCircle2, Clock, Calendar, User, ChevronLeft
@@ -8,11 +9,13 @@ import {
 import PurchaseTemplateModal from './PurchaseTemplateModal'
 import RecurringInvoiceModal from './RecurringInvoiceModal'
 import { fmt } from '@/lib/utils'
+import { recurringApi } from '@/api'
+import { toast } from '@/store/toastStore'
 
 const REC_NAV = [
-  { id: 'rec_inv',  label: 'Recurring Invoices', icon: FileText,   group: 'Sales Automation'    },
-  { id: 'pur_tpl',  label: 'Purchase Templates', icon: RefreshCw,  group: 'Purchase Automation'  },
-  { id: 'auto_pay', label: 'Automated Payments',  icon: CreditCard, group: 'Purchase Automation'  },
+  { id: 'rec_inv',  label: 'Recurring Invoices', icon: FileText,  group: 'Sales Automation'   },
+  { id: 'pur_tpl',  label: 'Purchase Templates', icon: RefreshCw, group: 'Purchase Automation' },
+  { id: 'auto_pay', label: 'Automated Payments', icon: CreditCard, group: 'Purchase Automation' },
 ]
 
 const STATUS_OPTS = ['all', 'active', 'paused', 'draft']
@@ -30,35 +33,80 @@ const HEADERS = {
 
 export default function RecurringTxnPage() {
   const { setActions, setContext, clear } = useTopbarStore()
-  const [activeTab,  setActiveTab]  = useState('rec_inv')
-  const [collapsed,  setCollapsed]  = useState(false)
-  const [modalOpen,  setModalOpen]  = useState(false)
-  const [filter,     setFilter]     = useState('all')
-  const [search,     setSearch]     = useState('')
-
-  const [recurringInvoices, setRecurringInvoices] = useState([])
-  const [purchaseTemplates, setPurchaseTemplates] = useState([])
-  const [automatedPayments, setAutomatedPayments] = useState([])
+  const qc = useQueryClient()
+  const [activeTab, setActiveTab] = useState('rec_inv')
+  const [collapsed, setCollapsed] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [filter,    setFilter]    = useState('all')
+  const [search,    setSearch]    = useState('')
 
   const currentNav = REC_NAV.find(n => n.id === activeTab)
+  const isInvoice  = activeTab === 'rec_inv'
 
+  // ── Queries ────────────────────────────────────────────────────
+  const { data: recurringInvoices = [], isLoading: loadInv } = useQuery({
+    queryKey: ['recurring-invoices'],
+    queryFn: recurringApi.listInvoices,
+  })
+
+  const { data: purchaseTemplates = [], isLoading: loadTpl } = useQuery({
+    queryKey: ['purchase-templates'],
+    queryFn: recurringApi.listTemplates,
+  })
+
+  const isLoading = loadInv || loadTpl
+
+  // ── Mutations ──────────────────────────────────────────────────
+  const createInvoiceMut = useMutation({
+    mutationFn: recurringApi.createInvoice,
+    onSuccess: () => { qc.invalidateQueries(['recurring-invoices']); toast.success('Recurring invoice created') },
+    onError:   e => toast.error(e.message),
+  })
+
+  const createTemplateMut = useMutation({
+    mutationFn: recurringApi.createTemplate,
+    onSuccess: () => { qc.invalidateQueries(['purchase-templates']); toast.success('Template created') },
+    onError:   e => toast.error(e.message),
+  })
+
+  const toggleInvoiceMut = useMutation({
+    mutationFn: ({ id, status }) => recurringApi.updateInvoiceStatus(id, status),
+    onSuccess: () => qc.invalidateQueries(['recurring-invoices']),
+    onError:   e => toast.error(e.message),
+  })
+
+  const toggleTemplateMut = useMutation({
+    mutationFn: ({ id, status }) => recurringApi.updateTemplateStatus(id, status),
+    onSuccess: () => qc.invalidateQueries(['purchase-templates']),
+    onError:   e => toast.error(e.message),
+  })
+
+  const deleteInvoiceMut = useMutation({
+    mutationFn: recurringApi.removeInvoice,
+    onSuccess: () => { qc.invalidateQueries(['recurring-invoices']); toast.success('Deleted') },
+    onError:   e => toast.error(e.message),
+  })
+
+  const deleteTemplateMut = useMutation({
+    mutationFn: recurringApi.removeTemplate,
+    onSuccess: () => { qc.invalidateQueries(['purchase-templates']); toast.success('Deleted') },
+    onError:   e => toast.error(e.message),
+  })
+
+  // ── Derived data ───────────────────────────────────────────────
+  // auto_pay tab reuses purchase templates until a dedicated table is added
   const allItems =
-    activeTab === 'rec_inv' ? recurringInvoices :
-    activeTab === 'pur_tpl' ? purchaseTemplates :
-    automatedPayments
-
-  const setter =
-    activeTab === 'rec_inv' ? setRecurringInvoices :
-    activeTab === 'pur_tpl' ? setPurchaseTemplates :
-    setAutomatedPayments
+    activeTab === 'rec_inv'  ? recurringInvoices :
+    activeTab === 'pur_tpl'  ? purchaseTemplates :
+    purchaseTemplates  // auto_pay same source for now
 
   const filtered = allItems.filter(item => {
     const matchStatus = filter === 'all' || item.status === filter
     const q = search.toLowerCase()
     const matchSearch = !q ||
       item.name?.toLowerCase().includes(q) ||
-      item.customerName?.toLowerCase().includes(q) ||
-      item.vendor?.toLowerCase().includes(q)
+      item.customer_name?.toLowerCase().includes(q) ||
+      item.vendor_name?.toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
 
@@ -69,42 +117,41 @@ export default function RecurringTxnPage() {
     draft:  allItems.filter(i => i.status === 'draft').length,
   }
 
-  const openModal  = () => setModalOpen(true)
-  const closeModal = () => setModalOpen(false)
-
+  // ── Handlers ───────────────────────────────────────────────────
   const handleSave = (data) => {
-    setter(p => [...p, { ...data, id: Date.now(), status: 'active' }])
-    closeModal()
+    if (isInvoice) createInvoiceMut.mutate(data)
+    else           createTemplateMut.mutate(data)
+    setModalOpen(false)
   }
 
-  const handleToggle = (id) =>
-    setter(p => p.map(i => i.id === id ? { ...i, status: i.status === 'active' ? 'paused' : 'active' } : i))
-
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this template?')) setter(p => p.filter(i => i.id !== id))
+  const handleToggle = (item) => {
+    const newStatus = item.status === 'active' ? 'paused' : 'active'
+    if (isInvoice) toggleInvoiceMut.mutate({ id: item.id, status: newStatus })
+    else           toggleTemplateMut.mutate({ id: item.id, status: newStatus })
   }
 
-  const switchTab = (id) => {
-    setActiveTab(id)
-    setSearch('')
-    setFilter('all')
+  const handleDelete = (item) => {
+    if (!window.confirm('Delete this template?')) return
+    if (isInvoice) deleteInvoiceMut.mutate(item.id)
+    else           deleteTemplateMut.mutate(item.id)
   }
+
+  const switchTab = (id) => { setActiveTab(id); setSearch(''); setFilter('all') }
 
   useEffect(() => {
-    setContext('Recurring Transactions', currentNav?.label)
+    setContext('Recurring Billing', currentNav?.label)
     setActions(
-      <button className="btn btn-primary" onClick={openModal}>
+      <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
         <Plus size={15} /> New {currentNav?.label?.replace(/s$/, '')}
       </button>
     )
     return clear
-  }, [setActions, setContext, clear, activeTab])
+  }, [setActions, setContext, clear, activeTab]) // eslint-disable-line
+
+  if (isLoading) return <PageLoading />
 
   const headers = HEADERS[activeTab] || []
-  const isInvoice = activeTab === 'rec_inv'
-
-  // Group sidebar items
-  const groups = [...new Set(REC_NAV.map(n => n.group))]
+  const groups  = [...new Set(REC_NAV.map(n => n.group))]
 
   return (
     <div className="secondary-layout">
@@ -115,7 +162,7 @@ export default function RecurringTxnPage() {
           <span>Automation</span>
           <button
             className="secondary-header-toggle"
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={() => setCollapsed(c => !c)}
             title={collapsed ? 'Expand' : 'Collapse'}
           >
             <ChevronLeft size={16} />
@@ -128,7 +175,7 @@ export default function RecurringTxnPage() {
               {!collapsed && (
                 <div style={{
                   fontSize: 10, fontWeight: 800, color: 'var(--c-text3)',
-                  textTransform: 'uppercase', letterSpacing: '0.08em',
+                  textTransform: 'uppercase', letterSpacing: '.08em',
                   padding: '10px 12px 4px', marginTop: 4,
                 }}>
                   {group}
@@ -143,15 +190,6 @@ export default function RecurringTxnPage() {
                 >
                   <item.icon size={16} />
                   <span>{item.label}</span>
-                  {!collapsed && allItems.length > 0 && activeTab !== item.id && (
-                    <span style={{
-                      marginLeft: 'auto', fontSize: 10, fontWeight: 700,
-                      background: 'var(--c-border)', color: 'var(--c-text3)',
-                      borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
-                    }}>
-                      {(activeTab === item.id ? allItems : []).length}
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
@@ -159,16 +197,16 @@ export default function RecurringTxnPage() {
         </div>
       </aside>
 
-      {/* ── Main content ── */}
+      {/* ── Main ── */}
       <main className="secondary-content">
 
         {/* KPI strip */}
-        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+        <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 20 }}>
           <div className="kpi-card blue">
             <div className="kpi-icon"><FileText size={20} /></div>
             <div className="kpi-label">Total</div>
             <div className="kpi-value">{allItems.length}</div>
-            <div className="kpi-sub">{fmt.currency(allItems.reduce((s, i) => s + (i.total || 0), 0))} / cycle</div>
+            <div className="kpi-sub">{fmt.currency(allItems.reduce((s, i) => s + Number(i.amount || 0), 0))} / cycle</div>
           </div>
           <div className="kpi-card green">
             <div className="kpi-icon"><CheckCircle2 size={20} /></div>
@@ -186,7 +224,11 @@ export default function RecurringTxnPage() {
             <div className="kpi-icon"><DollarSign size={20} /></div>
             <div className="kpi-label">Monthly Value</div>
             <div className="kpi-value">
-              {fmt.currency(allItems.filter(i => i.status === 'active' && i.frequency === 'monthly').reduce((s, i) => s + (i.total || 0), 0))}
+              {fmt.currency(
+                allItems
+                  .filter(i => i.status === 'active' && i.frequency === 'monthly')
+                  .reduce((s, i) => s + Number(i.amount || 0), 0)
+              )}
             </div>
             <div className="kpi-sub">Active monthly</div>
           </div>
@@ -199,7 +241,7 @@ export default function RecurringTxnPage() {
             <input
               className="form-input"
               style={{ paddingLeft: 34 }}
-              placeholder={'Search ' + (currentNav?.label || '').toLowerCase() + '...'}
+              placeholder={`Search ${(currentNav?.label || '').toLowerCase()}...`}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -207,14 +249,10 @@ export default function RecurringTxnPage() {
           <div className="spacer" />
           <div className="pill-tabs">
             {STATUS_OPTS.map(s => (
-              <button
-                key={s}
-                className={'pill-tab' + (filter === s ? ' active' : '')}
-                onClick={() => setFilter(s)}
-              >
+              <button key={s} className={'pill-tab' + (filter === s ? ' active' : '')} onClick={() => setFilter(s)}>
                 {s.toUpperCase()}
                 {s !== 'all' && counts[s] > 0 && (
-                  <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.8 }}>({counts[s]})</span>
+                  <span style={{ marginLeft: 5, fontSize: 10, opacity: .8 }}>({counts[s]})</span>
                 )}
               </button>
             ))}
@@ -228,7 +266,7 @@ export default function RecurringTxnPage() {
               <thead>
                 <tr>
                   {headers.map(h => <th key={h}>{h}</th>)}
-                  <th style={{ width: 80 }}></th>
+                  <th style={{ width: 80 }} />
                 </tr>
               </thead>
               <tbody>
@@ -238,7 +276,7 @@ export default function RecurringTxnPage() {
                       <EmptyState
                         icon={<RefreshCw size={44} />}
                         title={allItems.length === 0
-                          ? 'No ' + (currentNav?.label || '').toLowerCase() + ' yet'
+                          ? `No ${(currentNav?.label || '').toLowerCase()} yet`
                           : 'No results found'}
                         description={allItems.length === 0
                           ? isInvoice
@@ -246,7 +284,7 @@ export default function RecurringTxnPage() {
                             : 'Create reusable templates for recurring purchase transactions.'
                           : 'Try a different search or status filter.'}
                         action={allItems.length === 0 && (
-                          <button className="btn btn-primary" onClick={openModal}>
+                          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
                             <Plus size={15} /> New {currentNav?.label?.replace(/s$/, '')}
                           </button>
                         )}
@@ -258,12 +296,11 @@ export default function RecurringTxnPage() {
                     <tr key={item.id}>
                       <td>
                         <div style={{ fontWeight: 600 }}>{item.name}</div>
-                        {item.notes && <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>{item.notes}</div>}
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <User size={13} color="var(--c-text3)" />
-                          <span>{item.customerName || item.vendor || '—'}</span>
+                          <span>{item.customer_name || item.vendor_name || '—'}</span>
                         </div>
                       </td>
                       <td>
@@ -276,19 +313,19 @@ export default function RecurringTxnPage() {
                         </span>
                       </td>
                       <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>
-                        {fmt.currency(item.total || 0)}
+                        {fmt.currency(item.amount || 0)}
                       </td>
                       <td style={{ color: 'var(--c-text2)', fontSize: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                           <Calendar size={12} color="var(--c-text3)" />
-                          {item.nextRunDate
-                            ? new Date(item.nextRunDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                          {item.next_run
+                            ? new Date(item.next_run).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                             : '—'}
                         </div>
                       </td>
                       {isInvoice && (
                         <td>
-                          <span style={{ fontSize: 12 }}>{item.autoSend ? '📧 Auto' : '📋 Draft'}</span>
+                          <span style={{ fontSize: 12 }}>{item.auto_send ? '📧 Auto' : '📋 Draft'}</span>
                         </td>
                       )}
                       <td>
@@ -302,15 +339,15 @@ export default function RecurringTxnPage() {
                           <button
                             className="topbar-icon-btn"
                             title={item.status === 'active' ? 'Pause' : 'Resume'}
-                            onClick={() => handleToggle(item.id)}
+                            onClick={() => handleToggle(item)}
                           >
                             {item.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
                           </button>
                           <button
                             className="topbar-icon-btn"
                             title="Delete"
-                            style={{ color: 'var(--c-danger)' }}
-                            onClick={() => handleDelete(item.id)}
+                            style={{ color: 'var(--c-red)' }}
+                            onClick={() => handleDelete(item)}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -327,10 +364,10 @@ export default function RecurringTxnPage() {
 
       {/* Modals */}
       {modalOpen && activeTab === 'rec_inv' && (
-        <RecurringInvoiceModal onClose={closeModal} onSave={handleSave} />
+        <RecurringInvoiceModal onClose={() => setModalOpen(false)} onSave={handleSave} />
       )}
       {modalOpen && (activeTab === 'pur_tpl' || activeTab === 'auto_pay') && (
-        <PurchaseTemplateModal onClose={closeModal} onSave={handleSave} />
+        <PurchaseTemplateModal onClose={() => setModalOpen(false)} onSave={handleSave} />
       )}
     </div>
   )

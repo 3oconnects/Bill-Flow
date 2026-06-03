@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orgApi, teamApi, authApi } from '@/api'
 import { useAuthStore } from '@/store/authStore'
@@ -7,7 +8,7 @@ import { useTheme } from '@store/themeStore'
 import { PageLoading, Spinner, Badge } from '@/components/ui'
 import { useForm } from 'react-hook-form'
 import Modal from '@/components/Modal'
-import { Plus, Trash2, Save, Lock, User, Palette, Globe, Building2 } from 'lucide-react'
+import { Plus, Trash2, Save, Lock, User, Palette, Globe, Building2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const TABS = [
   { id: 'org', label: 'Organization', icon: Building2 },
@@ -23,40 +24,202 @@ function OrgTab() {
   const qc = useQueryClient()
   const { data: org, isLoading } = useQuery({ queryKey: ['org'], queryFn: orgApi.get })
   const { register, handleSubmit, formState: { isSubmitting } } = useForm({ values: org || {} })
+  const [logoPreview, setLogoPreview] = useState(org?.logo || null)
+  const fileInputRef = useRef(null)
+
   const mutation = useMutation({
     mutationFn: orgApi.update,
     onSuccess: (d) => { qc.invalidateQueries(['org']); setOrg(d); toast.success('Organization updated') },
     onError: (e) => toast.error(e.message),
   })
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setLogoPreview(reader.result)
+      reader.readAsDataURL(file)
+    }
+  }
+
   if (isLoading) return <PageLoading />
+
   return (
     <form onSubmit={handleSubmit((d) => mutation.mutate(d))}>
-      <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>Business Information</div>
-      <div className="form-grid">
-        <div className="form-group"><label className="form-label">Business Name *</label><input className="form-input" {...register('name')} /></div>
-        <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" {...register('email')} /></div>
-        <div className="form-group"><label className="form-label">Phone</label><input className="form-input" {...register('phone')} /></div>
-        <div className="form-group"><label className="form-label">Website</label><input className="form-input" {...register('website')} /></div>
-        <div className="form-group"><label className="form-label">GSTIN</label><input className="form-input" {...register('gstin')} /></div>
-        <div className="form-group"><label className="form-label">PAN</label><input className="form-input" {...register('pan')} /></div>
-        <div className="form-group"><label className="form-label">City</label><input className="form-input" {...register('city')} /></div>
-        <div className="form-group"><label className="form-label">State</label><input className="form-input" {...register('state')} /></div>
-        <div className="form-group"><label className="form-label">Pincode</label><input className="form-input" {...register('pincode')} /></div>
-        <div className="form-group"><label className="form-label">Currency</label>
-          <select className="form-select" {...register('currency')}><option value="INR">INR</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
+      {/* Two Column Layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 28, marginBottom: 28 }}>
+
+        {/* LEFT COLUMN - Logo & Profile Upload */}
+        <div>
+          <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: 24, position: 'sticky', top: 0 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Company Logo
+            </h3>
+
+            {/* Logo Upload Area */}
+            <div style={{ marginBottom: 20 }}>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  width: '100%',
+                  aspectRatio: '1',
+                  borderRadius: 12,
+                  background: logoPreview ? `url(${logoPreview})` : 'var(--c-surface2)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '2px dashed var(--c-border)',
+                  cursor: 'pointer',
+                  fontSize: 56,
+                  fontWeight: 700,
+                  color: 'var(--c-text3)',
+                  transition: 'all 0.2s',
+                  marginBottom: 12,
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = logoPreview ? `url(${logoPreview})` : 'var(--c-primary-lt)'
+                  e.currentTarget.style.borderColor = 'var(--c-primary)'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = logoPreview ? `url(${logoPreview})` : 'var(--c-surface2)'
+                  e.currentTarget.style.borderColor = 'var(--c-border)'
+                }}
+              >
+                {!logoPreview && '🏢'}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                style={{ display: 'none' }}
+              />
+              <div style={{ fontSize: 12, color: 'var(--c-text2)', textAlign: 'center', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Click to upload logo</div>
+                <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>PNG, JPG or GIF (Max 5MB)</div>
+              </div>
+            </div>
+
+            {/* Logo Preview Info */}
+            {logoPreview && (
+              <div style={{ background: 'var(--c-surface2)', border: '1px solid var(--c-border)', borderRadius: 8, padding: 12, fontSize: 12, color: 'var(--c-text2)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>✓ Logo uploaded</div>
+                <div style={{ fontSize: 11, color: 'var(--c-text3)' }}>Changes will be saved when you click Save</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN - Business Information */}
+        <div>
+          <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: 24 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Business Information
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+              <div className="form-group">
+                <label className="form-label">Business Name *</label>
+                <input className="form-input" {...register('name')} placeholder="Your company legal name" />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" {...register('email')} placeholder="contact@company.com" />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Phone</label>
+                <input className="form-input" {...register('phone')} placeholder="+91-XXXXXXXXXX" />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Website</label>
+                <input className="form-input" {...register('website')} placeholder="https://example.com" />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Currency</label>
+                <select className="form-select" {...register('currency')}>
+                  <option value="INR">₹ INR (Indian Rupee)</option>
+                  <option value="USD">$ USD (US Dollar)</option>
+                  <option value="EUR">€ EUR (Euro)</option>
+                  <option value="GBP">£ GBP (British Pound)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Business Address</label>
+                <textarea className="form-textarea" {...register('address')} rows={3} placeholder="Street address, city, state, country" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="form-group"><label className="form-label">Address</label><textarea className="form-textarea" {...register('address')} rows={2} /></div>
-      <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '20px 0 14px' }}>Invoice Defaults</div>
-      <div className="form-grid">
-        <div className="form-group"><label className="form-label">Invoice Prefix</label><input className="form-input" {...register('inv_prefix')} placeholder="INV-" /></div>
-        <div className="form-group"><label className="form-label">Next Invoice No.</label><input className="form-input" type="number" {...register('next_inv_no')} /></div>
-        <div className="form-group"><label className="form-label">Default Due Days</label><input className="form-input" type="number" {...register('due_days')} /></div>
+
+      {/* Tax & Compliance Section */}
+      <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 20, paddingBottom: 16, borderBottom: '2px solid var(--c-success)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Tax & Compliance
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div className="form-group">
+            <label className="form-label">GSTIN</label>
+            <input className="form-input" {...register('gstin')} placeholder="27AABCT1234A1Z5" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">PAN</label>
+            <input className="form-input" {...register('pan')} placeholder="AAAPN1234A" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">City</label>
+            <input className="form-input" {...register('city')} placeholder="Mumbai" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">State</label>
+            <input className="form-input" {...register('state')} placeholder="Maharashtra" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Pincode</label>
+            <input className="form-input" {...register('pincode')} placeholder="400001" />
+          </div>
+        </div>
       </div>
-      <div className="form-group"><label className="form-label">Default Invoice Notes</label><textarea className="form-textarea" {...register('default_notes')} rows={2} /></div>
-      <div className="form-group"><label className="form-label">Default Terms & Conditions</label><textarea className="form-textarea" {...register('default_terms')} rows={2} /></div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+
+      {/* Invoice Defaults Section */}
+      <div style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)', marginBottom: 20, paddingBottom: 16, borderBottom: '2px solid var(--c-info)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Invoice Defaults
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 16 }}>
+          <div className="form-group">
+            <label className="form-label">Invoice Prefix</label>
+            <input className="form-input" {...register('inv_prefix')} placeholder="INV-" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Next Invoice Number</label>
+            <input className="form-input" type="number" {...register('next_inv_no')} placeholder="1001" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Default Due Days</label>
+            <input className="form-input" type="number" {...register('due_days')} placeholder="30" />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Default Invoice Notes</label>
+          <textarea className="form-textarea" {...register('default_notes')} rows={2} placeholder="e.g., Thank you for your business!" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Default Terms & Conditions</label>
+          <textarea className="form-textarea" {...register('default_terms')} rows={2} placeholder="e.g., Payment due within 30 days of invoice date" />
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 20, borderTop: '1px solid var(--c-border)' }}>
+        <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ minWidth: 180 }}>
           {isSubmitting ? <Spinner size={14} /> : <><Save size={14} /> Save Changes</>}
         </button>
       </div>
@@ -295,7 +458,14 @@ function AppearanceTab() {
 
 // ── Main ───────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [tab, setTab] = useState('org')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [sidenavCollapsed, setSidenavCollapsed] = useState(false)
+
+  // Get tab from URL query params, default to 'org'
+  const tab = searchParams.get('tab') || 'org'
+  const setTab = (newTab) => {
+    setSearchParams({ tab: newTab })
+  }
   return (
     <div>
       <div className="page-header">
@@ -306,15 +476,38 @@ export default function SettingsPage() {
       </div>
 
       <div className="settings-layout">
-        <aside className="settings-sidenav">
+        <aside className={`settings-sidenav${sidenavCollapsed ? ' collapsed' : ''}`}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8, marginBottom: 4, borderBottom: '1px solid var(--c-border)' }}>
+            {!sidenavCollapsed && <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--c-text3)', letterSpacing: '0.05em' }}>Settings</div>}
+            <button
+              onClick={() => setSidenavCollapsed(!sidenavCollapsed)}
+              style={{
+                padding: '6px 6px',
+                background: 'var(--c-surface2)',
+                border: '1px solid var(--c-border)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--c-text2)',
+                transition: 'all 0.2s',
+                marginLeft: sidenavCollapsed ? 'auto' : '0',
+              }}
+              title={sidenavCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidenavCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </button>
+          </div>
           {TABS.map((t) => {
             const Icon = t.icon
             return (
               <button key={t.id}
                 className={`settings-sidenav-btn${tab === t.id ? ' active' : ''}`}
-                onClick={() => setTab(t.id)}>
+                onClick={() => setTab(t.id)}
+                title={sidenavCollapsed ? t.label : ''}>
                 <Icon size={15} />
-                {t.label}
+                {!sidenavCollapsed && <span>{t.label}</span>}
               </button>
             )
           })}

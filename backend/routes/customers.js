@@ -27,6 +27,46 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Customer detail — customer + all related invoices, payments, warranty claims
+router.get('/:id/detail', requireAuth, async (req, res) => {
+  try {
+    const cust = await stmts.getCustomer.get(req.params.id, req.orgId);
+    if (!cust) return sendError(res, 'Customer not found', 'NOT_FOUND', 404);
+
+    const [invoices, payments, warranty_claims] = await Promise.all([
+      db.query(
+        `SELECT id, number, date, due_date, status, total, subtotal, tax, currency, shipment_status
+         FROM invoices
+         WHERE customer_id = $1 AND org_id = $2 AND deleted_at IS NULL
+         ORDER BY date DESC`,
+        [req.params.id, req.orgId]
+      ).then(r => r.rows),
+
+      db.query(
+        `SELECT p.id, p.amount, p.date, p.method, p.reference, i.number AS invoice_number
+         FROM payments p
+         LEFT JOIN invoices i ON p.invoice_id = i.id
+         WHERE i.customer_id = $1 AND p.org_id = $2 AND p.deleted_at IS NULL
+         ORDER BY p.date DESC`,
+        [req.params.id, req.orgId]
+      ).then(r => r.rows),
+
+      db.query(
+        `SELECT id, invoice_number, product_name, model_number, status, issue_description, created_at
+         FROM warranty_claims
+         WHERE customer_id = $1 AND org_id = $2 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [req.params.id, req.orgId]
+      ).then(r => r.rows),
+    ]);
+
+    sendSuccess(res, { customer: cust, invoices, payments, warranty_claims });
+  } catch (err) {
+    console.error('Get customer detail error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { name, email, phone, address, city, state, country, pincode, gstin, pan, currency, credit_limit, notes } = req.body;

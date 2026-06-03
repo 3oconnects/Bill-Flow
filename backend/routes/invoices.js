@@ -89,4 +89,27 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   }
 });
 
+router.patch('/:id/shipment', requireAuth, async (req, res) => {
+  try {
+    const { shipment_status } = req.body;
+    const valid = ['not_shipped', 'processing', 'shipped', 'delivered'];
+    if (!valid.includes(shipment_status))
+      return sendError(res, 'Invalid shipment status', 'VALIDATION_ERROR', 400);
+
+    const confirmedAt = shipment_status === 'delivered' ? new Date().toISOString() : null;
+    await db.query(
+      `UPDATE invoices
+       SET shipment_status = $1,
+           shipment_confirmed_at = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 AND org_id = $4`,
+      [shipment_status, confirmedAt, req.params.id, req.orgId]
+    );
+    sendSuccess(res, null);
+  } catch (err) {
+    console.error('Update shipment error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 module.exports = router;

@@ -37,18 +37,72 @@ export const statusBadge = (status) => {
   return map[status] || 'badge-gray'
 }
 
-export const ROLES = ['owner', 'admin', 'staff', 'member']
+export const ROLES = ['owner', 'admin', 'accountant', 'staff', 'member']
+
+// All page IDs in the new navigation architecture
+const ALL_PAGES = [
+  // Core
+  'dashboard',
+  // Sales
+  'customers', 'quotations', 'invoices', 'payments_received', 'credit_notes',
+  'recurring_billing', 'warranty',
+  // Purchasing
+  'vendors', 'purchase_orders', 'goods_mgmt', 'goods_returns',
+  'accounts_payable', 'vendor_payments', 'procurement_analytics',
+  // Inventory
+  'products', 'stock_overview', 'stock_movements', 'stock_valuation',
+  'low_stock_alerts', 'inventory_analytics',
+  // Banking
+  'banking_overview', 'bank_accounts', 'bank_transactions', 'collections_center',
+  'banking_vendor_payments', 'reconciliation_center', 'cash_flow_forecast', 'banking_insights',
+  // Finance
+  'expenses', 'budget_planner', 'gst_center', 'profit_loss',
+  'tax_reports', 'bank_transactions', 'audit_logs', 'financial_reports',
+  // Administration
+  'org_settings', 'roles', 'preferences', 'approval_workflows', 'integrations',
+]
+
+// Subset visible to each role
 export const ROLE_PAGE_ACCESS = {
-  owner:  ['dashboard','customers','products','invoices','payments','vendors','expenses','reports','settings','marketplace','banking','warranty','roles','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn','procurement_analysis'],
-  admin:  ['dashboard','customers','products','invoices','payments','vendors','expenses','reports','settings','marketplace','banking','warranty','roles','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn','procurement_analysis'],
-  staff:  ['dashboard','customers','products','invoices','payments','vendors','expenses','banking','warranty','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn','procurement_analysis'],
-  member: ['dashboard','customers','products','invoices','payments','vendors','expenses','warranty','purchase_mgmt','goods_mgmt','goods_returns','ap_handle','recurring_txn'],
+  owner: ALL_PAGES,
+
+  admin: ALL_PAGES.filter(p => !['audit_logs', 'integrations', 'approval_workflows'].includes(p)),
+
+  accountant: [
+    'dashboard',
+    'customers', 'invoices', 'payments_received', 'credit_notes',
+    'vendors', 'accounts_payable', 'vendor_payments', 'procurement_analytics',
+    'banking_overview', 'bank_accounts', 'bank_transactions', 'collections_center',
+    'reconciliation_center', 'cash_flow_forecast',
+    'expenses', 'budget_planner', 'gst_center', 'profit_loss',
+    'financial_reports', 'tax_reports', 'audit_logs',
+    'products', 'stock_overview', 'stock_valuation',
+    'org_settings', 'preferences',
+  ],
+
+  staff: [
+    'dashboard',
+    'customers', 'quotations', 'invoices', 'payments_received', 'warranty',
+    'vendors', 'purchase_orders', 'goods_mgmt', 'goods_returns', 'accounts_payable',
+    'products', 'stock_overview', 'low_stock_alerts',
+    'banking_overview', 'bank_transactions',
+    'expenses', 'budget_planner',
+  ],
+
+  member: [
+    'dashboard',
+    'customers', 'invoices', 'payments_received', 'warranty',
+    'products', 'stock_overview',
+    'expenses',
+  ],
 }
+
 export const ROLE_DEFAULT_PAGE = {
-  owner:  '/dashboard',
-  admin:  '/dashboard',
-  staff:  '/invoices',
-  member: '/invoices',
+  owner:      '/dashboard',
+  admin:      '/dashboard',
+  accountant: '/banking',
+  staff:      '/invoices',
+  member:     '/invoices',
 }
 
 export const TAX_RATES = [0, 5, 12, 18, 28]
