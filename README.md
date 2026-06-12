@@ -337,51 +337,6 @@ npm run dev
 ```
 
 ---
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in your values:
-
-```env
-# ── Database ──────────────────────────────────────────────────────────────────
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=billflow_pro
-DB_USER=billflow
-DB_PASSWORD=your_strong_password_here
-DB_SSL=false
-DB_POOL_MAX=25
-
-# ── Authentication ─────────────────────────────────────────────────────────────
-# Generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-JWT_SECRET=REPLACE_WITH_64_CHAR_RANDOM_STRING
-COOKIE_SECRET=REPLACE_WITH_ANOTHER_64_CHAR_RANDOM_STRING
-
-# ── Server ─────────────────────────────────────────────────────────────────────
-NODE_ENV=development
-PORT=3000
-FRONTEND_URL=http://localhost:5173
-BACKEND_URL=http://localhost:3000
-
-# ── Redis (required for recurring billing + report caching) ───────────────────
-REDIS_URL=redis://localhost:6379
-
-# ── Razorpay ──────────────────────────────────────────────────────────────────
-RAZORPAY_KEY_ID=rzp_test_XXXXXXXXXX
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
-
-# ── Email (Resend) ────────────────────────────────────────────────────────────
-RESEND_API_KEY=re_XXXXXXXXXXXXXXXX
-EMAIL_FROM=noreply@yourdomain.com
-
-# ── Monitoring ────────────────────────────────────────────────────────────────
-SENTRY_DSN=
-LOG_LEVEL=info
-```
-
----
-
 ## Available Scripts
 
 | Script | Description |
