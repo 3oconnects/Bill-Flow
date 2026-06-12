@@ -243,14 +243,22 @@ router.patch('/:id/process', requireAuth, requireAdmin, async (req, res) => {
 
 // ── Generate Credit Note ───────────────────────────────── PATCH /:id/credit-note
 router.patch('/:id/credit-note', requireAuth, requireAdmin, async (req, res) => {
+  const client = await db.connect();
   try {
+    await client.query('BEGIN');
     const gr = await stmts.getGoodsReturn.get(req.params.id, req.orgId);
-    if (!gr) return sendError(res, 'Not found', 'NOT_FOUND', 404);
-    if (!['returned', 'closed'].includes(gr.status)) return sendError(res, 'Return must be in returned status', 'CONFLICT', 409);
-    if (gr.credit_note_no) return sendError(res, 'Credit note already generated', 'CONFLICT', 409);
+    if (!gr) { await client.query('ROLLBACK'); return sendError(res, 'Not found', 'NOT_FOUND', 404); }
+    if (!['returned', 'closed'].includes(gr.status)) {
+      await client.query('ROLLBACK');
+      return sendError(res, 'Return must be in returned status', 'CONFLICT', 409);
+    }
+    if (gr.credit_note_no) {
+      await client.query('ROLLBACK');
+      return sendError(res, 'Credit note already generated', 'CONFLICT', 409);
+    }
 
     const year = new Date().getFullYear();
-    const { rows } = await db.query(
+    const { rows } = await client.query(
       `SELECT COUNT(*) AS cnt FROM goods_returns WHERE org_id=$1 AND credit_note_no IS NOT NULL`,
       [req.orgId]
     );
@@ -258,12 +266,64 @@ router.patch('/:id/credit-note', requireAuth, requireAdmin, async (req, res) => 
     const credit_note_no   = `CN-${year}-${seq}`;
     const credit_note_date = new Date().toISOString().split('T')[0];
 
+    // ── Create the real AP credit memo + items so the credit shows up in AP ──
+    // Mirror this goods return into ap_credit_memos so it can be applied
+    // against open AP invoices for the same vendor.
+    const items = await client.query(
+      `SELECT product_id, item_code, item_name, qty_returned AS quantity,
+              unit_price, tax_rate, tax_amount, return_amount AS line_total
+         FROM goods_return_items
+        WHERE return_id=$1 ORDER BY sort_order`,
+      [gr.id]
+    ).then(r => r.rows);
+
+    const memoId = require('uuid').v4();
+    await client.query(
+      `INSERT INTO ap_credit_memos
+         (id, org_id, doc_no, vendor_id, vendor_name, vendor_gstin,
+          ref_invoice_no, credit_date, posting_date, currency, reason,
+          subtotal, tax_amount, total_amount, status, notes, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,'approved',$14,$15,NOW(),NOW())`,
+      [
+        memoId, req.orgId, credit_note_no,
+        gr.vendor_id || null, gr.vendor_name, gr.vendor_gstin || null,
+        gr.base_receipt_no || null, credit_note_date, 'INR',
+        'Goods returned to vendor',
+        parseFloat(gr.subtotal || 0),
+        parseFloat(gr.tax_amount || 0),
+        parseFloat(gr.total_amount || 0),
+        `Auto-generated from Goods Return ${gr.return_no}`,
+        req.user.id,
+      ]
+    );
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      await client.query(
+        `INSERT INTO ap_credit_memo_items
+           (id, org_id, memo_id, product_id, item_code, item_name,
+            quantity, unit_price, tax_rate, tax_amount, line_total, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          require('uuid').v4(), req.orgId, memoId,
+          it.product_id || null, it.item_code || null, it.item_name,
+          parseFloat(it.quantity || 0), parseFloat(it.unit_price || 0),
+          parseFloat(it.tax_rate || 0), parseFloat(it.tax_amount || 0),
+          parseFloat(it.line_total || 0), i,
+        ]
+      );
+    }
+
     await stmts.updateGoodsReturnCreditNote.run(req.params.id, req.orgId, credit_note_no, credit_note_date);
-    await logAction(req.orgId, req.params.id, 'Credit Note Generated', gr.status, gr.status, `Credit note ${credit_note_no} issued`, req.user.id);
-    sendSuccess(res, { credit_note_no, credit_note_date });
+    await logAction(req.orgId, req.params.id, 'Credit Note Generated', gr.status, gr.status,
+      `AP Credit Memo ${credit_note_no} created`, req.user.id);
+    await client.query('COMMIT');
+    sendSuccess(res, { credit_note_no, credit_note_date, ap_credit_memo_id: memoId });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Credit note error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  } finally {
+    client.release();
   }
 });
 

@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { STATUS_META, REASON_META, WORKFLOW_STAGES } from './CreditNotesShared'
 import CreditNoteForm from './CreditNoteForm'
 import CreditNoteTable from './CreditNoteTable'
+import CreditNoteDetailModal from './CreditNoteDetailModal'
 
 export default function CreditNotesPage() {
   const { setContext, setActions, clear } = useTopbarStore()
@@ -22,6 +23,7 @@ export default function CreditNotesPage() {
   const [statusF,  setStatusF]  = useState('all')
   const [reasonF,  setReasonF]  = useState('all')
   const [showForm, setShowForm] = useState(false)
+  const [viewId,   setViewId]   = useState(null)
 
   const { data: notes = [], isLoading: loadN } = useQuery({ queryKey: ['credit-notes'],       queryFn: creditNotesApi.list })
   const { data: stats,        isLoading: loadS } = useQuery({ queryKey: ['credit-note-stats'], queryFn: creditNotesApi.stats })
@@ -259,7 +261,7 @@ export default function CreditNotesPage() {
               <div className="card-title">Recent Credit Notes</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setView('list')}>View All →</button>
             </div>
-            <CreditNoteTable notes={notes.slice(0, 8)} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)} />
+            <CreditNoteTable notes={notes.slice(0, 8)} onView={setViewId} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)} />
           </div>
         </div>
       ) : (
@@ -281,8 +283,18 @@ export default function CreditNotesPage() {
             <div className="spacer" />
             <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>{filtered.length} notes</span>
           </div>
-          <CreditNoteTable notes={filtered} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)} />
+          <CreditNoteTable notes={filtered} onView={setViewId} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)} />
         </div>
+      )}
+
+      {viewId && (
+        <CreditNoteDetailModal
+          id={viewId}
+          onClose={() => setViewId(null)}
+          onApprove={id => approveMut.mutate(id)}
+          onApply={id => applyMut.mutate(id)}
+          onReject={id => rejectMut.mutate(id)}
+        />
       )}
 
       {showForm && (

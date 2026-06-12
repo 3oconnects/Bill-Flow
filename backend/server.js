@@ -32,6 +32,7 @@ const {
 const logger        = require('./utils/logger');
 const routes        = require('./routes');
 const { sendError } = require('./utils/response');
+const { initSchema } = require('./db/schema');
 
 // Sentry (optional)
 if (process.env.SENTRY_DSN) {
@@ -92,12 +93,25 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-  try { require('./workers/scheduler'); }              catch (e) { logger.warn('scheduler not loaded: ' + e.message); }
-  try { require('./workers/recurringInvoiceWorker'); } catch (e) { logger.warn('recurringInvoiceWorker not loaded: ' + e.message); }
+  (async () => {
+    // 1. Bootstrap schema (idempotent — uses CREATE TABLE / ADD COLUMN IF NOT EXISTS).
+    try {
+      await initSchema();
+      logger.info('Schema bootstrap complete');
+    } catch (e) {
+      logger.error('Schema bootstrap failed — refusing to start', { error: e.message });
+      process.exit(1);
+    }
 
-  app.listen(PORT, () => {
-    logger.info('BillFlow API started', { port: PORT, env: process.env.NODE_ENV || 'development' });
-  });
+    // 2. Optional background workers.
+    try { require('./workers/scheduler'); }              catch (e) { logger.warn('scheduler not loaded: ' + e.message); }
+    try { require('./workers/recurringInvoiceWorker'); } catch (e) { logger.warn('recurringInvoiceWorker not loaded: ' + e.message); }
+
+    // 3. Start listening.
+    app.listen(PORT, () => {
+      logger.info('BillFlow API started', { port: PORT, env: process.env.NODE_ENV || 'development' });
+    });
+  })();
 }
 
 module.exports = app;

@@ -98,4 +98,91 @@ router.delete('/:id/documents/:docId', requireAuth, async (req, res) => {
   }
 });
 
+// ── Vendor ↔ Products links (product_vendors join table) ───────────────────
+// List products linked to a vendor with supply price + primary flag.
+router.get('/:id/products', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT pv.id, pv.product_id, pv.supply_price, pv.is_primary, pv.notes,
+              p.name AS product_name, p.sku, p.hsn_code,
+              p.unit_price, p.stock_qty
+         FROM product_vendors pv
+         JOIN products p ON p.id = pv.product_id AND p.org_id = pv.org_id
+        WHERE pv.org_id=$1 AND pv.vendor_id=$2 AND pv.deleted_at IS NULL
+          AND p.deleted_at IS NULL
+        ORDER BY pv.is_primary DESC, p.name ASC`,
+      [req.orgId, req.params.id]
+    );
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Get vendor products error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Link a product to a vendor.
+router.post('/:id/products', requireAuth, async (req, res) => {
+  try {
+    const { product_id, supply_price, is_primary, notes } = req.body;
+    if (!product_id) return sendError(res, 'product_id is required', 'VALIDATION_ERROR', 400);
+
+    // Reject duplicate active link for same (vendor, product) pair.
+    const existing = await db.query(
+      `SELECT id FROM product_vendors
+        WHERE org_id=$1 AND vendor_id=$2 AND product_id=$3 AND deleted_at IS NULL`,
+      [req.orgId, req.params.id, product_id]
+    );
+    if (existing.rowCount) {
+      return sendError(res, 'Product already linked to this vendor', 'DUPLICATE', 409);
+    }
+
+    const pvId = uuid();
+    await db.query(
+      `INSERT INTO product_vendors
+         (id, org_id, product_id, vendor_id, supply_price, is_primary, notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [pvId, req.orgId, product_id, req.params.id,
+       parseFloat(supply_price || 0), !!is_primary, notes || null, req.user.id]
+    );
+    sendSuccess(res, { id: pvId });
+  } catch (err) {
+    console.error('Link vendor product error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Update supply price / primary flag for a vendor-product link.
+router.put('/:id/products/:pvId', requireAuth, async (req, res) => {
+  try {
+    const { supply_price, is_primary, notes } = req.body;
+    const r = await db.query(
+      `UPDATE product_vendors
+          SET supply_price=$1, is_primary=$2, notes=$3, updated_at=CURRENT_TIMESTAMP
+        WHERE id=$4 AND vendor_id=$5 AND org_id=$6 AND deleted_at IS NULL`,
+      [parseFloat(supply_price || 0), !!is_primary, notes || null,
+       req.params.pvId, req.params.id, req.orgId]
+    );
+    if (!r.rowCount) return sendError(res, 'Link not found', 'NOT_FOUND', 404);
+    sendSuccess(res, null);
+  } catch (err) {
+    console.error('Update vendor product error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Unlink a product from a vendor.
+router.delete('/:id/products/:pvId', requireAuth, async (req, res) => {
+  try {
+    await db.query(
+      `UPDATE product_vendors SET deleted_at=CURRENT_TIMESTAMP
+        WHERE id=$1 AND vendor_id=$2 AND org_id=$3`,
+      [req.params.pvId, req.params.id, req.orgId]
+    );
+    sendSuccess(res, null);
+  } catch (err) {
+    console.error('Unlink vendor product error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 module.exports = router;

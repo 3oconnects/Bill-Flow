@@ -17,6 +17,7 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    allowedHosts: ['henlike-heterogeneously-rex.ngrok-free.dev', 'all'],
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

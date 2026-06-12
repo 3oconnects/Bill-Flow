@@ -55,7 +55,11 @@ const customerSchemas = {
     gstin:        z.string().max(15).optional(),
     pan:          z.string().max(10).optional(),
     currency:     z.string().max(3).optional(),
-    credit_limit: z.number().nonnegative().optional(),
+    // Coerce: HTML number inputs submit strings ("" / "5000"). Empty → 0.
+    credit_limit: z.preprocess(
+      (v) => (v === '' || v === null || v === undefined ? 0 : v),
+      z.coerce.number().nonnegative()
+    ).optional(),
     notes:        z.string().max(1000).optional(),
   }),
 };

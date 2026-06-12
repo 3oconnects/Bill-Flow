@@ -1,11 +1,11 @@
-import { ReceiptText } from 'lucide-react'
+import { Receipt } from 'lucide-react'
 import { fmt } from '@/lib/utils'
 import { S } from './DetailShared'
 
 export default function SalesHistoryTab({ salesHistory }) {
   if (!salesHistory.length) return (
     <div style={S.empty}>
-      <ReceiptText size={26} style={{ marginBottom: 8, opacity: 0.3 }} />
+      <Receipt size={26} style={{ marginBottom: 8, opacity: 0.3 }} />
       <div style={{ fontWeight: 600, fontSize: 13 }}>No sales recorded yet</div>
     </div>
   )

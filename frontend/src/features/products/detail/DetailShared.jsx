@@ -1,4 +1,4 @@
-import { Info, DollarSign, Shield, Truck, History, ReceiptText, Tag } from 'lucide-react'
+import { Info, DollarSign, Shield, Truck, History, Receipt, Tag } from 'lucide-react'
 
 export const S = {
   card: { background: 'var(--bg-1,#fff)', borderRadius: 12, border: '1px solid var(--border)', padding: 20 },
@@ -17,7 +17,7 @@ export const TABS = [
   { id: 'warranty', label: 'Warranty', icon: Shield },
   { id: 'vendors', label: 'Vendors', icon: Truck },
   { id: 'stock-history', label: 'Stock History', icon: History },
-  { id: 'sales', label: 'Sales', icon: ReceiptText },
+  { id: 'sales', label: 'Sales', icon: Receipt },
   { id: 'price-lists', label: 'Price Lists', icon: Tag },
 ]
 

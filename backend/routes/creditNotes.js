@@ -5,6 +5,7 @@ const { v4: uuid } = require('uuid');
 const { db }  = require('../db');
 const { requireAuth } = require('../auth');
 const { sendSuccess, sendError } = require('../utils/response');
+const CustomerBalance = require('../services/customerBalanceService');
 
 // ── List ──────────────────────────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
@@ -143,51 +144,72 @@ router.patch('/:id/approve', requireAuth, async (req, res) => {
 });
 
 // ── Apply credit note — reduces invoice outstanding atomically
+// Uses a single pinned client so BEGIN / FOR UPDATE / UPDATE / COMMIT all run
+// on the SAME connection (pool-level db.query('BEGIN') is NOT transactional).
 router.patch('/:id/apply', requireAuth, async (req, res) => {
+  const client = await db.connect();
   try {
-    await db.query('BEGIN');
-    const cnRow = await db.query(
+    await client.query('BEGIN');
+    const cnRow = await client.query(
       'SELECT * FROM credit_notes WHERE id=$1 AND org_id=$2 AND deleted_at IS NULL FOR UPDATE',
       [req.params.id, req.orgId]
     );
     if (!cnRow.rows.length) {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       return sendError(res, 'Credit note not found', 'NOT_FOUND', 404);
     }
     const cn = cnRow.rows[0];
     if (cn.status !== 'approved') {
-      await db.query('ROLLBACK');
+      await client.query('ROLLBACK');
       return sendError(res, 'Credit note must be approved before applying', 'VALIDATION_ERROR', 422);
     }
+
+    const creditTotal = parseFloat(cn.total) || 0;
+
     if (cn.invoice_id) {
-      const inv = await db.query(
-        'SELECT total, COALESCE(paid_amount,0) AS paid FROM invoices WHERE id=$1 AND org_id=$2 FOR UPDATE',
+      const inv = await client.query(
+        'SELECT total, COALESCE(paid_amount,0) AS paid, COALESCE(credited_amount,0) AS credited FROM invoices WHERE id=$1 AND org_id=$2 FOR UPDATE',
         [cn.invoice_id, req.orgId]
       );
       if (inv.rows.length) {
-        const newPaid = Math.min(
-          parseFloat(inv.rows[0].paid) + parseFloat(cn.total),
-          parseFloat(inv.rows[0].total)
+        const invTotal    = parseFloat(inv.rows[0].total);
+        const invPaid     = parseFloat(inv.rows[0].paid);
+        const invCredited = parseFloat(inv.rows[0].credited);
+        const outstanding = invTotal - invPaid - invCredited;
+        // H3: prevent over-crediting an invoice beyond its outstanding balance.
+        if (creditTotal > outstanding + 0.01) {
+          await client.query('ROLLBACK');
+          return sendError(
+            res,
+            `Credit (${creditTotal}) exceeds invoice outstanding (${outstanding.toFixed(2)})`,
+            'OVER_CREDIT', 422
+          );
+        }
+        // H2: credit accrues to credited_amount (NOT paid_amount), so cash/revenue
+        // are not overstated. Invoice settles when paid + credited covers the total.
+        const newCredited = invCredited + creditTotal;
+        await client.query(
+          "UPDATE invoices SET credited_amount=$1, status = CASE WHEN (COALESCE(paid_amount,0) + $1) >= total THEN 'paid' ELSE status END, updated_at=NOW() WHERE id=$2",
+          [newCredited, cn.invoice_id]
         );
-        await db.query('UPDATE invoices SET paid_amount=$1, updated_at=NOW() WHERE id=$2', [newPaid, cn.invoice_id]);
       }
     }
     if (cn.customer_id) {
-      await db.query(
-        'UPDATE customers SET outstanding = GREATEST(0, outstanding - $1), updated_at=NOW() WHERE id=$2',
-        [parseFloat(cn.total), cn.customer_id]
-      );
+      // Recompute from the ledger so the invoice paid_amount change above is reflected.
+      await CustomerBalance.recompute(client, req.orgId, cn.customer_id);
     }
-    await db.query(
+    await client.query(
       "UPDATE credit_notes SET status='applied', applied_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
       [req.params.id]
     );
-    await db.query('COMMIT');
+    await client.query('COMMIT');
     sendSuccess(res, null);
   } catch (err) {
-    await db.query('ROLLBACK').catch(() => {});
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Apply credit note error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  } finally {
+    client.release();
   }
 });
 

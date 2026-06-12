@@ -9,6 +9,6 @@ export const STATUS_META = {
   expired:     { label: 'Expired',     color: '#6b7280', bg: '#f9fafb' },
 }
 
-export const FUNNEL_STAGES  = ['draft','sent','viewed','negotiation','approved','converted']
-export const FUNNEL_COLORS  = ['#9aa3b2','#1a6be8','#6b3fd4','#c97b10','#0a8754','#0891b2']
+export const FUNNEL_STAGES  = ['draft','sent','viewed','negotiation','approved','converted','rejected','expired']
+export const FUNNEL_COLORS  = ['#9aa3b2','#1a6be8','#6b3fd4','#c97b10','#0a8754','#0891b2','#d63d3d','#6b7280']
 export const PROB_COLOR = p => p >= 75 ? '#0a8754' : p >= 50 ? '#c97b10' : '#d63d3d'

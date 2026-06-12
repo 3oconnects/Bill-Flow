@@ -1,338 +1,320 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Modal from '@/components/Modal'
-import { Plus, Trash2, RefreshCw, Calendar, AlertCircle } from 'lucide-react'
+import {
+  Plus, Trash2, RefreshCw, Calendar, AlertCircle, ScanLine, Package,
+} from 'lucide-react'
 import { fmt } from '@/lib/utils'
-import { customersApi } from '@/api'
+import { toast } from '@/store/toastStore'
+import { customersApi, productsApi } from '@/api'
+import CustomerCombobox from '@/features/customers/CustomerCombobox'
+import ProductCombobox  from '@/features/products/ProductCombobox'
+import ProductScanModal from '@/features/products/ProductScanModal'
+import {
+  FREQUENCIES, PAYMENT_TERMS, CURRENCIES, GST_RATES,
+} from './recurringShared'
 
-const FREQUENCIES = [
-  { value: 'daily',      label: 'Daily',     hint: 'Every day' },
-  { value: 'weekly',     label: 'Weekly',    hint: 'Every 7 days' },
-  { value: 'bimonthly',  label: 'Bi-Monthly',hint: 'Every 2 weeks' },
-  { value: 'monthly',    label: 'Monthly',   hint: 'Same day each month' },
-  { value: 'quarterly',  label: 'Quarterly', hint: 'Every 3 months' },
-  { value: 'biannual',   label: 'Bi-Annual', hint: 'Every 6 months' },
-  { value: 'yearly',     label: 'Yearly',    hint: 'Once a year' },
-]
-
-const GST_RATES = [0, 5, 12, 18, 28]
-const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED']
-
-const defaultItem = () => ({
-  id: Date.now() + Math.random(),
-  description: '',
-  qty: 1,
-  unitPrice: 0,
-  gstRate: 18,
+const EMPTY_ITEM = () => ({
+  key: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  product_id: '', description: '', sku: '', hsn_code: '',
+  quantity: 1, unit_price: 0, tax_rate: 18, tax_amount: 0, amount: 0,
 })
 
-export default function RecurringInvoiceModal({ onClose, onSave }) {
+const recalc = (it) => {
+  const qty   = Number(it.quantity)   || 0
+  const price = Number(it.unit_price) || 0
+  const tax   = Number(it.tax_rate)   || 0
+  const amount     = parseFloat((qty * price).toFixed(2))
+  const tax_amount = parseFloat((amount * tax / 100).toFixed(2))
+  return { ...it, amount, tax_amount }
+}
+
+const fromProduct = (p, existing) => recalc({
+  ...(existing || EMPTY_ITEM()),
+  product_id: p.id,
+  description: p.name || existing?.description || '',
+  sku: p.sku || '',
+  hsn_code: p.hsn_code || '',
+  unit_price: Number(p.unit_price) || 0,
+  tax_rate:   Number(p.tax_rate)   || 18,
+  quantity:   Number(existing?.quantity) || 1,
+})
+
+export default function RecurringInvoiceModal({ initial, onClose, onSave }) {
   const { data: customers = [] } = useQuery({ queryKey: ['customers'], queryFn: customersApi.list })
+  const { data: products  = [] } = useQuery({ queryKey: ['products'],  queryFn: productsApi.list })
+
+  const initialItems = initial?.template_data?.items || initial?.items || []
+  const [scanOpen, setScanOpen] = useState(false)
 
   const [form, setForm] = useState({
-    name: '',
-    customerId: '',
-    frequency: 'monthly',
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: '',
-    neverEnds: true,
-    currency: 'INR',
-    paymentTerms: '30',
-    autoSend: true,
-    notes: '',
+    name:          initial?.name || '',
+    customer_id:   initial?.customer_id || '',
+    customer_name: initial?.customer_name || '',
+    frequency:     initial?.frequency || 'monthly',
+    next_run:      initial?.next_run ? String(initial.next_run).slice(0, 10) : new Date().toISOString().slice(0, 10),
+    end_date:      initial?.end_date ? String(initial.end_date).slice(0, 10) : '',
+    never_ends:    initial ? !initial?.end_date : true,
+    currency:      initial?.currency || 'INR',
+    payment_terms: initial?.template_data?.payment_terms || '30',
+    auto_send:     initial?.auto_send ?? true,
+    notes:         initial?.template_data?.notes || '',
   })
-  const [items, setItems] = useState([defaultItem()])
-  const [saving, setSaving] = useState(false)
+  const [items, setItems] = useState(initialItems.length ? initialItems.map(recalc) : [])
   const [errors, setErrors] = useState({})
 
-  const set = (key, val) => {
-    setForm(f => ({ ...f, [key]: val }))
-    setErrors(e => ({ ...e, [key]: undefined }))
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: undefined })) }
+
+  const selectCustomer = (c) => {
+    if (!c) { setForm(f => ({ ...f, customer_id: '', customer_name: '' })); return }
+    setForm(f => ({ ...f, customer_id: c.id, customer_name: c.name || '' }))
+    setErrors(e => ({ ...e, customer_id: undefined }))
   }
 
-  const addItem = () => setItems(p => [...p, defaultItem()])
-  const removeItem = (id) => setItems(p => p.filter(i => i.id !== id))
-  const updateItem = (id, key, val) =>
-    setItems(p => p.map(i => i.id === id ? { ...i, [key]: val } : i))
+  const addProductLine = (p) => {
+    setItems(prev => {
+      const idx = prev.findIndex(it => it.product_id === p.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = recalc({ ...next[idx], quantity: (Number(next[idx].quantity) || 0) + 1 })
+        return next
+      }
+      return [...prev, fromProduct(p)]
+    })
+    setErrors(e => ({ ...e, items: undefined }))
+  }
 
-  const subtotal = items.reduce((s, i) => s + i.qty * i.unitPrice, 0)
-  const tax      = items.reduce((s, i) => s + i.qty * i.unitPrice * (i.gstRate / 100), 0)
+  const updateItem = (i, k, v) => setItems(prev => prev.map((it, j) => j === i ? recalc({ ...it, [k]: v }) : it))
+  const removeItem = (i) => setItems(prev => prev.filter((_, j) => j !== i))
+  const addCustom  = () => setItems(prev => [...prev, EMPTY_ITEM()])
+
+  const subtotal = items.reduce((s, i) => s + (Number(i.amount) || 0), 0)
+  const tax      = items.reduce((s, i) => s + (Number(i.tax_amount) || 0), 0)
   const total    = subtotal + tax
 
-  const selectedCustomer = customers.find(c => String(c.id) === String(form.customerId))
-  const freq = FREQUENCIES.find(f => f.value === form.frequency)
+  const freq = useMemo(() => FREQUENCIES.find(f => f.value === form.frequency), [form.frequency])
 
-  const validate = () => {
+  const handleSave = () => {
     const e = {}
-    if (!form.name.trim())       e.name = 'Template name is required'
-    if (!form.customerId)        e.customerId = 'Customer is required'
-    if (!form.startDate)         e.startDate = 'Start date is required'
-    if (items.every(i => !i.description.trim())) e.items = 'Add at least one item'
+    if (!form.name.trim())     e.name = 'Template name is required'
+    if (!form.customer_id)     e.customer_id = 'Pick a customer from the list'
+    if (!form.next_run)        e.next_run = 'Start date is required'
+    if (!form.never_ends && !form.end_date)
+      e.end_date = 'End date is required (or check "Never ends")'
+    if (!items.length || !items.some(it => it.description && Number(it.quantity) > 0))
+      e.items = 'Add at least one line item'
     setErrors(e)
-    return Object.keys(e).length === 0
-  }
-
-  const handleSave = async () => {
-    if (!validate()) return
-    setSaving(true)
-    await new Promise(r => setTimeout(r, 500))
-    onSave?.({
-      ...form,
-      customerName: selectedCustomer?.name,
-      items,
-      subtotal,
-      tax,
-      total,
-      status: 'active',
-      nextRunDate: form.startDate,
+    if (Object.keys(e).length) {
+      toast.error(Object.values(e)[0])
+      return
+    }
+    // Pack everything into the shape the backend expects.
+    onSave({
+      id:            initial?.id,
+      name:          form.name.trim(),
+      customer_id:   form.customer_id,
+      customer_name: form.customer_name,
+      frequency:     form.frequency,
+      amount:        total,
+      currency:      form.currency,
+      next_run:      form.next_run,
+      end_date:      form.never_ends ? null : form.end_date,
+      auto_send:     form.auto_send,
+      status:        initial?.status || 'active',
+      template_data: {
+        items,
+        notes:          form.notes,
+        payment_terms:  form.payment_terms,
+        subtotal, tax, total,
+      },
     })
-    setSaving(false)
   }
 
   const footer = (
     <>
       <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-      <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-        <RefreshCw size={14} />
-        {saving ? 'Creating…' : 'Create Recurring Invoice'}
+      <button className="btn btn-primary" onClick={handleSave}>
+        <RefreshCw size={14} /> {initial ? 'Save Changes' : 'Create Recurring Invoice'}
       </button>
     </>
   )
 
   return (
-    <Modal title="New Recurring Invoice" onClose={onClose} size="xl" footer={footer}>
+    <Modal title={initial ? `Edit ${initial.name}` : 'New Recurring Invoice'} onClose={onClose} size="xl" footer={footer}>
       <div className="po-form-standard">
-
-        {/* ── Row 1: Template details ── */}
-        <div className="responsive-grid cols-1-1" style={{ marginBottom: 28, gap: 40 }}>
-
-          {/* Left column */}
+        {/* Row 1 — Template details */}
+        <div className="responsive-grid cols-1-1" style={{ marginBottom: 24, gap: 32 }}>
           <div className="form-section-compact">
-            <div className="form-group-row">
-              <label>Template Name *</label>
-              <div style={{ flex: 1 }}>
-                <input
-                  className={`form-input sm${errors.name ? ' input-error' : ''}`}
-                  placeholder="e.g. Monthly Retainer – Acme Corp"
-                  value={form.name}
-                  onChange={e => set('name', e.target.value)}
-                />
-                {errors.name && <div className="field-error">{errors.name}</div>}
-              </div>
+            <div className="form-group">
+              <label className="form-label req">Template Name</label>
+              <input className={`form-input${errors.name ? ' input-error' : ''}`}
+                placeholder="e.g. Monthly Retainer – Acme Corp"
+                value={form.name} onChange={e => set('name', e.target.value)} />
+              {errors.name && <div className="field-error">{errors.name}</div>}
             </div>
 
-            <div className="form-group-row">
-              <label>Customer *</label>
-              <div style={{ flex: 1 }}>
-                <select
-                  className={`form-select sm${errors.customerId ? ' input-error' : ''}`}
-                  value={form.customerId}
-                  onChange={e => set('customerId', e.target.value)}
-                >
-                  <option value="">Select customer…</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
+            <div className="form-group">
+              <label className="form-label req">Customer</label>
+              <CustomerCombobox customers={customers} value={form.customer_id} onPick={selectCustomer} />
+              {errors.customer_id && <div className="field-error">{errors.customer_id}</div>}
+            </div>
+
+            <div className="form-row cols-2">
+              <div className="form-group m0">
+                <label className="form-label">Currency</label>
+                <select className="form-select" value={form.currency} onChange={e => set('currency', e.target.value)}>
+                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                {errors.customerId && <div className="field-error">{errors.customerId}</div>}
               </div>
-            </div>
-
-            {selectedCustomer && (
-              <div style={{ marginLeft: 100, padding: '8px 12px', background: 'var(--c-primary-lt)', borderRadius: 8, fontSize: 12, color: 'var(--c-primary)' }}>
-                {selectedCustomer.email && <div>📧 {selectedCustomer.email}</div>}
-                {selectedCustomer.gstin && <div>🏛 GSTIN: {selectedCustomer.gstin}</div>}
+              <div className="form-group m0">
+                <label className="form-label">Payment Terms</label>
+                <select className="form-select" value={form.payment_terms} onChange={e => set('payment_terms', e.target.value)}>
+                  {PAYMENT_TERMS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
               </div>
-            )}
-
-            <div className="form-group-row" style={{ marginTop: 8 }}>
-              <label>Currency</label>
-              <select className="form-select sm" value={form.currency} onChange={e => set('currency', e.target.value)}>
-                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-
-            <div className="form-group-row">
-              <label>Payment Terms</label>
-              <select className="form-select sm" value={form.paymentTerms} onChange={e => set('paymentTerms', e.target.value)}>
-                <option value="0">Due on receipt</option>
-                <option value="7">Net 7 days</option>
-                <option value="15">Net 15 days</option>
-                <option value="30">Net 30 days</option>
-                <option value="45">Net 45 days</option>
-                <option value="60">Net 60 days</option>
-              </select>
             </div>
           </div>
 
-          {/* Right column */}
           <div className="form-section-compact">
-            <div className="form-group-row">
-              <label>Frequency</label>
-              <div style={{ flex: 1 }}>
-                <select className="form-select sm" value={form.frequency} onChange={e => set('frequency', e.target.value)}>
-                  {FREQUENCIES.map(f => (
-                    <option key={f.value} value={f.value}>{f.label}</option>
-                  ))}
-                </select>
-                {freq && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: 'var(--c-text3)' }}>
-                    <Calendar size={11} style={{ display: 'inline', marginRight: 4 }} />
-                    {freq.hint}
-                  </div>
-                )}
-              </div>
+            <div className="form-group">
+              <label className="form-label">Frequency</label>
+              <select className="form-select" value={form.frequency} onChange={e => set('frequency', e.target.value)}>
+                {FREQUENCIES.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+              {freq && (
+                <div style={{ marginTop: 4, fontSize: 11, color: 'var(--c-text3)' }}>
+                  <Calendar size={11} style={{ display: 'inline', marginRight: 4 }} /> {freq.hint}
+                </div>
+              )}
             </div>
 
-            <div className="form-group-row">
-              <label>Start Date *</label>
-              <div style={{ flex: 1 }}>
-                <input
-                  type="date"
-                  className={`form-input sm${errors.startDate ? ' input-error' : ''}`}
-                  value={form.startDate}
-                  onChange={e => set('startDate', e.target.value)}
-                />
-                {errors.startDate && <div className="field-error">{errors.startDate}</div>}
-              </div>
+            <div className="form-group">
+              <label className="form-label req">Start Date / Next Run</label>
+              <input type="date" className={`form-input${errors.next_run ? ' input-error' : ''}`}
+                value={form.next_run} onChange={e => set('next_run', e.target.value)} />
+              {errors.next_run && <div className="field-error">{errors.next_run}</div>}
             </div>
 
-            <div className="form-group-row" style={{ alignItems: 'flex-start' }}>
-              <label style={{ paddingTop: 6 }}>End Date</label>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontWeight: 400 }}>
-                  <input
-                    type="checkbox"
-                    checked={form.neverEnds}
-                    onChange={e => set('neverEnds', e.target.checked)}
-                  />
-                  <span style={{ fontSize: 12 }}>Never ends (runs indefinitely)</span>
-                </label>
-                {!form.neverEnds && (
-                  <input
-                    type="date"
-                    className="form-input sm"
-                    value={form.endDate}
-                    min={form.startDate}
-                    onChange={e => set('endDate', e.target.value)}
-                  />
-                )}
-              </div>
+            <div className="form-group">
+              <label className="form-label">End Date</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer', fontWeight: 400, fontSize: 12 }}>
+                <input type="checkbox" checked={form.never_ends}
+                  onChange={e => set('never_ends', e.target.checked)} />
+                Never ends (runs indefinitely)
+              </label>
+              {!form.never_ends && (
+                <input type="date" className={`form-input${errors.end_date ? ' input-error' : ''}`}
+                  value={form.end_date} min={form.next_run}
+                  onChange={e => set('end_date', e.target.value)} />
+              )}
+              {errors.end_date && <div className="field-error">{errors.end_date}</div>}
             </div>
 
-            <div className="form-group-row" style={{ alignItems: 'center' }}>
-              <label>Auto-Send</label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 400 }}>
-                <input
-                  type="checkbox"
-                  checked={form.autoSend}
-                  onChange={e => set('autoSend', e.target.checked)}
-                />
-                <span style={{ fontSize: 12 }}>
-                  Automatically email invoice to customer on each cycle
-                </span>
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 400, fontSize: 12 }}>
+                <input type="checkbox" checked={form.auto_send}
+                  onChange={e => set('auto_send', e.target.checked)} />
+                Automatically email invoice to customer on each cycle
               </label>
             </div>
           </div>
         </div>
 
-        {/* ── Line items ── */}
+        {/* Line items header — combobox + scanner */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, marginBottom: 10, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+            Line Items per Cycle
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, justifyContent: 'flex-end', minWidth: 320 }}>
+            <ProductCombobox products={products} onPick={addProductLine} />
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setScanOpen(true)}>
+              <ScanLine size={13} /> Scan
+            </button>
+          </div>
+        </div>
+
         {errors.items && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--c-danger)', fontSize: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: 'var(--c-red)', fontSize: 12 }}>
             <AlertCircle size={14} /> {errors.items}
           </div>
         )}
-        <div className="tab-content-area" style={{ background: 'white', border: `1px solid ${errors.items ? 'var(--c-danger)' : 'var(--c-border)'}`, borderRadius: 8, marginBottom: 24, overflow: 'hidden' }}>
-          <table className="line-items-table compact" style={{ borderCollapse: 'collapse', border: 'none', width: '100%' }}>
-            <thead>
-              <tr style={{ background: 'var(--c-surface2)' }}>
-                <th style={{ width: 36, textAlign: 'center' }}>#</th>
-                <th>Description</th>
-                <th style={{ width: 70, textAlign: 'right' }}>Qty</th>
-                <th style={{ width: 130, textAlign: 'right' }}>Unit Price</th>
-                <th style={{ width: 90, textAlign: 'center' }}>GST %</th>
-                <th style={{ width: 130, textAlign: 'right' }}>Amount</th>
-                <th style={{ width: 36 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id}>
-                  <td style={{ color: 'var(--c-text3)', fontSize: 11, textAlign: 'center' }}>{idx + 1}</td>
-                  <td>
-                    <input
-                      className="table-input"
-                      placeholder="Service / product description"
-                      value={item.description}
-                      onChange={e => updateItem(item.id, 'description', e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="table-input text-right"
-                      type="number" min="0.01" step="0.01"
-                      value={item.qty}
-                      onChange={e => updateItem(item.id, 'qty', parseFloat(e.target.value) || 0)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="table-input text-right"
-                      type="number" min="0" step="0.01"
-                      placeholder="0.00"
-                      value={item.unitPrice || ''}
-                      onChange={e => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                    />
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <select
-                      className="table-input"
-                      style={{ textAlign: 'center' }}
-                      value={item.gstRate}
-                      onChange={e => updateItem(item.id, 'gstRate', parseInt(e.target.value))}
-                    >
-                      {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
-                    </select>
-                  </td>
-                  <td className="text-right font-mono" style={{ fontSize: 12, paddingRight: 12 }}>
-                    {fmt.currency(item.qty * item.unitPrice)}
-                  </td>
-                  <td>
-                    {items.length > 1 && (
-                      <button className="action-icon-btn red" onClick={() => removeItem(item.id)} title="Remove">
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td colSpan={7} style={{ padding: '8px 12px' }}>
-                  <button className="btn btn-ghost btn-xs" onClick={addItem}>
-                    <Plus size={14} /> Add Line Item
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
-        {/* ── Notes + Totals ── */}
-        <div className="responsive-grid cols-2-1" style={{ alignItems: 'flex-start' }}>
+        {items.length === 0 ? (
+          <div style={{
+            border: '1px dashed var(--c-border)', borderRadius: 10, padding: 24,
+            textAlign: 'center', color: 'var(--c-text3)', fontSize: 13, marginBottom: 16,
+          }}>
+            <Package size={22} style={{ marginBottom: 6, opacity: .6 }} />
+            <div>No products yet — search above or scan a barcode.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '2.4fr .9fr .7fr 1fr .7fr 1fr 32px',
+              gap: 8, fontSize: 10, fontWeight: 700, color: 'var(--c-text3)',
+              textTransform: 'uppercase', letterSpacing: '.05em', padding: '0 4px',
+            }}>
+              <span>Product</span><span>HSN</span><span>Qty</span><span>Unit Price</span>
+              <span>GST %</span><span style={{ textAlign: 'right' }}>Amount</span><span />
+            </div>
+            {items.map((it, i) => (
+              <div key={it.key || i} style={{
+                display: 'grid', gridTemplateColumns: '2.4fr .9fr .7fr 1fr .7fr 1fr 32px',
+                gap: 8, alignItems: 'center',
+                border: '1px solid var(--c-border)', borderRadius: 10,
+                padding: '10px 12px', background: 'var(--c-surface)',
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {it.description || '—'}
+                  </div>
+                  {it.sku && <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--c-text3)', marginTop: 2 }}>{it.sku}</div>}
+                </div>
+                <input className="form-input" value={it.hsn_code || ''}
+                  onChange={e => updateItem(i, 'hsn_code', e.target.value)}
+                  placeholder="HSN" style={{ fontFamily: 'monospace' }} />
+                <input className="form-input" type="number" min={1} value={it.quantity}
+                  onChange={e => updateItem(i, 'quantity', e.target.value)} />
+                <input className="form-input" type="number" min={0} value={it.unit_price}
+                  onChange={e => updateItem(i, 'unit_price', e.target.value)} />
+                <select className="form-select" value={it.tax_rate}
+                  onChange={e => updateItem(i, 'tax_rate', e.target.value)}>
+                  {GST_RATES.map(r => <option key={r} value={r}>{r}%</option>)}
+                </select>
+                <div style={{
+                  textAlign: 'right', fontWeight: 700, fontSize: 13,
+                  background: 'var(--c-surface2, var(--c-bg))', borderRadius: 6, padding: '6px 8px',
+                }}>
+                  {fmt.currency(it.amount + it.tax_amount)}
+                </div>
+                <button type="button" className="action-icon-btn red"
+                  onClick={() => removeItem(i)} title="Remove">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button type="button" className="btn btn-ghost btn-sm" onClick={addCustom}>
+          <Plus size={13} /> Add Custom Line
+        </button>
+
+        {/* Notes + Totals */}
+        <div className="responsive-grid cols-2-1" style={{ alignItems: 'flex-start', marginTop: 16 }}>
           <div className="form-section-compact">
-            <div className="form-group-row" style={{ alignItems: 'flex-start' }}>
-              <label style={{ marginTop: 6 }}>Notes</label>
-              <textarea
-                className="form-input sm"
-                rows={3}
+            <div className="form-group">
+              <label className="form-label">Notes</label>
+              <textarea className="form-input" rows={3}
                 placeholder="e.g. Monthly retainer for design services as agreed in contract dated…"
-                value={form.notes}
-                onChange={e => set('notes', e.target.value)}
-              />
+                value={form.notes} onChange={e => set('notes', e.target.value)} />
             </div>
           </div>
 
-          <div style={{ padding: '14px 20px', background: 'var(--c-surface2)', borderRadius: 12 }}>
+          <div style={{ padding: '14px 20px', background: 'var(--c-surface2, var(--c-bg))', borderRadius: 12 }}>
             <div className="summary-row">
               <span>Subtotal</span>
               <span className="font-mono">{fmt.currency(subtotal)}</span>
@@ -341,31 +323,32 @@ export default function RecurringInvoiceModal({ onClose, onSave }) {
               <span>GST</span>
               <span className="font-mono">{fmt.currency(tax)}</span>
             </div>
-            <div className="summary-row total" style={{ borderTopColor: 'var(--c-border2)' }}>
+            <div className="summary-row total" style={{ borderTop: '1px solid var(--c-border)', marginTop: 8, paddingTop: 8 }}>
               <span style={{ fontWeight: 700 }}>Total / cycle</span>
               <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--c-primary)' }} className="font-mono">
                 {fmt.currency(total)}
               </span>
             </div>
-
-            {/* Next run preview */}
-            {form.startDate && (
+            {form.next_run && (
               <div style={{ marginTop: 14, padding: '10px 12px', background: 'var(--c-primary-lt)', borderRadius: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-                  First invoice on
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-primary)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
+                  Next invoice on
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-primary)' }}>
-                  {new Date(form.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {new Date(form.next_run).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 2 }}>
-                  {form.autoSend ? '📧 Will be auto-sent to customer' : '📋 Will be saved as draft'}
+                  {form.auto_send ? 'Will be auto-sent to customer' : 'Will be saved as draft'}
                 </div>
               </div>
             )}
           </div>
         </div>
-
       </div>
+
+      {scanOpen && (
+        <ProductScanModal onClose={() => setScanOpen(false)} onSelect={addProductLine} />
+      )}
     </Modal>
   )
 }

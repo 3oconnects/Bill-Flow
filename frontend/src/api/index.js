@@ -14,6 +14,10 @@ api.interceptors.response.use(
   }
 )
 
+// Some list endpoints return a paginated envelope { data: [...], page, limit }
+// while components expect a bare array. Normalize so callers always get an array.
+const asList = (p) => p.then((r) => (Array.isArray(r) ? r : (r?.data ?? [])))
+
 // ── Auth ──────────────────────────────────────────
 export const authApi = {
   me:             ()             => api.get('/auth/me'),
@@ -66,6 +70,11 @@ export const vendorsApi = {
   remove:        (id)            => api.delete(`/vendors/${id}`),
   uploadDoc:     (id, data)      => api.post(`/vendors/${id}/documents`, data),
   deleteDoc:     (vid, did)      => api.delete(`/vendors/${vid}/documents/${did}`),
+  // Vendor ↔ product links
+  listProducts:   (id)             => asList(api.get(`/vendors/${id}/products`)),
+  addProduct:     (id, data)       => api.post(`/vendors/${id}/products`, data),
+  updateProduct:  (id, pvId, data) => api.put(`/vendors/${id}/products/${pvId}`, data),
+  removeProduct:  (id, pvId)       => api.delete(`/vendors/${id}/products/${pvId}`),
 }
 
 // ── Products ─────────────────────────────────────
@@ -99,7 +108,7 @@ export const productsApi = {
 
 // ── Invoices ─────────────────────────────────────
 export const invoicesApi = {
-  list:            ()              => api.get('/invoices'),
+  list:            ()              => asList(api.get('/invoices')),
   get:             (id)            => api.get(`/invoices/${id}`),
   create:          (data)          => api.post('/invoices', data),
   update:          (id, data)      => api.put(`/invoices/${id}`, data),
@@ -110,9 +119,16 @@ export const invoicesApi = {
 
 // ── Payments ─────────────────────────────────────
 export const paymentsApi = {
-  list:   ()         => api.get('/payments'),
+  list:   ()         => asList(api.get('/payments')),
   create: (data)     => api.post('/payments', data),
   remove: (id)       => api.delete(`/payments/${id}`),
+}
+
+// ── Vendor Payments (AP side) ────────────────────
+export const vendorPaymentsApi = {
+  list:   ()      => asList(api.get('/vendor-payments')),
+  create: (data)  => api.post('/vendor-payments', data),
+  remove: (id)    => api.delete(`/vendor-payments/${id}`),
 }
 
 // ── Expenses ─────────────────────────────────────
@@ -205,15 +221,21 @@ export const creditNotesApi = {
 // ── Recurring ────────────────────────────────────
 export const recurringApi = {
   // Recurring invoices
-  listInvoices:        ()          => api.get('/recurring/invoices'),
-  createInvoice:       (data)      => api.post('/recurring/invoices', data),
-  updateInvoiceStatus: (id, status)=> api.patch(`/recurring/invoices/${id}/status`, { status }),
-  removeInvoice:       (id)        => api.delete(`/recurring/invoices/${id}`),
+  listInvoices:        ()           => api.get('/recurring/invoices'),
+  getInvoice:          (id)         => api.get(`/recurring/invoices/${id}`),
+  createInvoice:       (data)       => api.post('/recurring/invoices', data),
+  updateInvoice:       (id, data)   => api.put(`/recurring/invoices/${id}`, data),
+  updateInvoiceStatus: (id, status) => api.patch(`/recurring/invoices/${id}/status`, { status }),
+  removeInvoice:       (id)         => api.delete(`/recurring/invoices/${id}`),
+  invoiceRuns:         (id)         => api.get(`/recurring/invoices/${id}/runs`),
   // Purchase templates
-  listTemplates:        ()         => api.get('/recurring/purchase-templates'),
-  createTemplate:       (data)     => api.post('/recurring/purchase-templates', data),
-  updateTemplateStatus: (id, s)    => api.patch(`/recurring/purchase-templates/${id}/status`, { status: s }),
-  removeTemplate:       (id)       => api.delete(`/recurring/purchase-templates/${id}`),
+  listTemplates:        ()          => api.get('/recurring/purchase-templates'),
+  getTemplate:          (id)        => api.get(`/recurring/purchase-templates/${id}`),
+  createTemplate:       (data)      => api.post('/recurring/purchase-templates', data),
+  updateTemplate:       (id, data)  => api.put(`/recurring/purchase-templates/${id}`, data),
+  updateTemplateStatus: (id, s)     => api.patch(`/recurring/purchase-templates/${id}/status`, { status: s }),
+  removeTemplate:       (id)        => api.delete(`/recurring/purchase-templates/${id}`),
+  templateRuns:         (id)        => api.get(`/recurring/purchase-templates/${id}/runs`),
 }
 
 export default api

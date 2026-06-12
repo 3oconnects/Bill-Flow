@@ -9,6 +9,7 @@ import { toast } from '@/store/toastStore'
 import { useTopbarStore } from '@/store/topbarStore'
 import Modal from '@/components/Modal'
 import { useForm } from 'react-hook-form'
+import InvoicePreview from '../invoices/InvoicePreview'
 
 function PaymentForm({ invoices, onSuccess, onCancel }) {
   const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm({
@@ -99,6 +100,7 @@ export default function PaymentsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [methodFilter, setMethodFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [previewId, setPreviewId] = useState(null)
 
   const { data: payments = [], isLoading } = useQuery({ queryKey: ['payments'], queryFn: paymentsApi.list })
   const { data: invoices = [] } = useQuery({ queryKey: ['invoices'], queryFn: invoicesApi.list })
@@ -201,7 +203,7 @@ export default function PaymentsPage() {
                       <td className="mono" style={{ fontSize: 12 }}>{fmt.date(p.date)}</td>
                       <td>
                         {inv ? (
-                          <span className="link-text" onClick={() => navigate(`/invoices/${inv.id}`)}>
+                          <span className="link-text" onClick={() => setPreviewId(inv.id)}>
                             {inv.number}
                           </span>
                         ) : <span style={{ color: 'var(--c-text3)' }}>—</span>}
@@ -239,6 +241,10 @@ export default function PaymentsPage() {
             onCancel={() => setFormOpen(false)}
           />
         </Modal>
+      )}
+
+      {previewId && (
+        <InvoicePreview invoiceId={previewId} onClose={() => setPreviewId(null)} />
       )}
     </div>
   )

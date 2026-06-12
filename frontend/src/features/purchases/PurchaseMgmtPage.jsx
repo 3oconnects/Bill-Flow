@@ -1,70 +1,63 @@
 import { useEffect, useState } from 'react'
 import { useTopbarStore } from '@/store/topbarStore'
-import { EmptyState } from '@/components/ui'
 import {
-  ShoppingBag, Plus, ClipboardList, FileCheck, ShieldCheck,
-  ChevronLeft, Search
+  ShoppingBag, ClipboardList, FileCheck, ShieldCheck,
+  ChevronLeft, Construction, Sparkles,
 } from 'lucide-react'
-import PurchaseOrderModal from './PurchaseOrderModal'
-import BlanketAgreementModal from './BlanketAgreementModal'
-import PurchaseRequestModal from './PurchaseRequestModal'
-import PurchaseQuotationModal from './PurchaseQuotationModal'
 
 const PUR_NAV = [
-  { label: 'Blanket Agreements', icon: ShieldCheck, id: 'blanket' },
-  { label: 'Purchase Requests', icon: ClipboardList, id: 'requests' },
-  { label: 'Purchase Quotations', icon: FileCheck, id: 'quotes' },
-  { label: 'Purchase Orders', icon: ShoppingBag, id: 'orders' },
+  {
+    id: 'blanket',  label: 'Blanket Agreements', icon: ShieldCheck,
+    summary: 'Long-term price contracts with vendors. Release POs against the agreement as needed.',
+    useCase: 'A multi-year supply contract with Acme — fix the unit price, draw POs whenever stock dips.',
+  },
+  {
+    id: 'requests', label: 'Purchase Requests',  icon: ClipboardList,
+    summary: 'Internal requests from a department or warehouse that procurement approves into a PO.',
+    useCase: 'Warehouse: "Need 50 SKU-1002" → Approver: review → convert to PO.',
+  },
+  {
+    id: 'quotes',   label: 'Purchase Quotations', icon: FileCheck,
+    summary: 'RFQs sent to vendors to compare prices before committing to a Purchase Order.',
+    useCase: 'Send an RFQ to 3 vendors, compare quotes, pick the lowest, convert to a PO.',
+  },
+  {
+    id: 'orders',   label: 'Purchase Orders',     icon: ShoppingBag,
+    summary: 'Formal commitments to a vendor. Goods Receipts and AP Invoices flow off of these.',
+    useCase: 'Acme PO-0124, 50 units @ ₹820, expected delivery Jul 15 → receipt → AP invoice → pay.',
+  },
 ]
-
-const HEADER_CONFIG = {
-  blanket: ['AGREEMENT NO', 'VENDOR', 'START DATE', 'END DATE', 'TOTAL AMOUNT', 'STATUS'],
-  requests: ['REQUEST NO', 'REQUESTER', 'POSTING DATE', 'REQUIRED DATE', 'STATUS'],
-  quotes: ['QUOTATION NO', 'VENDOR', 'VALID UNTIL', 'TOTAL AMOUNT', 'STATUS'],
-  orders: ['ORDER NO', 'VENDOR', 'POSTING DATE', 'DELIVERY DATE', 'TOTAL AMOUNT', 'STATUS'],
-}
-
-const STATUS_OPTS = ['all', 'draft', 'open', 'closed']
 
 export default function PurchaseMgmtPage() {
   const { setActions, setContext, clear } = useTopbarStore()
   const [activeTab, setActiveTab] = useState('orders')
-  const [filter, setFilter] = useState('all')
-  const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
 
-  const data = []
-  const headers = HEADER_CONFIG[activeTab] || []
+  const current = PUR_NAV.find(n => n.id === activeTab)
 
   useEffect(() => {
-    const activeLabel = PUR_NAV.find(n => n.id === activeTab)?.label || 'Purchasing'
-    setContext('Purchase Management', activeLabel)
-    setActions(
-      <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-        <Plus size={15} /> New {activeLabel.replace(/s$/, '')}
-      </button>
-    )
+    setContext('Purchase Management', current?.label || 'Strategic Sourcing')
+    setActions(null)
     return clear
-  }, [setActions, setContext, clear, activeTab])
+  }, [setActions, setContext, clear, activeTab]) // eslint-disable-line
 
   return (
     <div className="secondary-layout">
       <aside className={`secondary-sidebar${collapsed ? ' collapsed' : ''}`}>
         <div className="secondary-sidebar-title">
           <span>Strategic Sourcing</span>
-          <button className="secondary-header-toggle" onClick={() => setCollapsed(!collapsed)} title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
+          <button className="secondary-header-toggle"
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}>
             <ChevronLeft size={16} />
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {PUR_NAV.map((item) => (
-            <div 
-              key={item.id} 
+            <div key={item.id}
               className={`secondary-nav-item${activeTab === item.id ? ' active' : ''}`}
-              onClick={() => { setActiveTab(item.id); setSearch(''); setFilter('all'); }}
-              title={collapsed ? item.label : ''}
-            >
+              onClick={() => setActiveTab(item.id)}
+              title={collapsed ? item.label : ''}>
               <item.icon size={16} />
               <span>{item.label}</span>
             </div>
@@ -73,92 +66,58 @@ export default function PurchaseMgmtPage() {
       </aside>
 
       <main className="secondary-content">
-        <div className="filter-bar" style={{ marginBottom: 20 }}>
-          <div className="search-wrap" style={{ width: 320 }}>
-            <Search className="search-icon" />
-            <input 
-              className="form-input" 
-              style={{ paddingLeft: 34 }} 
-              placeholder={`Search ${PUR_NAV.find(n => n.id === activeTab)?.label.toLowerCase()}...`} 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <div style={{
+          maxWidth: 720, margin: '60px auto', padding: 32,
+          background: 'var(--c-surface)', border: '1px solid var(--c-border)',
+          borderRadius: 14, textAlign: 'center',
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'var(--c-primary-lt)', color: 'var(--c-primary)',
+            margin: '0 auto 18px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Construction size={32} />
           </div>
-          <div className="spacer" />
-          <div className="pill-tabs">
-            {STATUS_OPTS.map(s => (
-              <button 
-                key={s} 
-                className={`pill-tab${filter === s ? ' active' : ''}`}
-                onClick={() => setFilter(s)}
-              >
-                {s.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="table-wrap">
-            <table className="compact">
-              <thead>
-                <tr>
-                  {headers.map(h => <th key={h}>{h}</th>)}
-                  <th style={{ width: 40 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.length === 0 ? (
-                  <tr>
-                    <td colSpan={headers.length + 1} style={{ padding: '80px 0' }}>
-                      <EmptyState 
-                        icon={<ShoppingBag size={48} />} 
-                        title={`No ${PUR_NAV.find(n => n.id === activeTab)?.label.toLowerCase()} found`}
-                        description={search || filter !== 'all' ? "Try adjusting your filters or search terms." : `Manage your ${PUR_NAV.find(n => n.id === activeTab)?.label.toLowerCase()} and procurement lifecycle here.`}
-                        action={
-                          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-                            <Plus size={15} /> Create {PUR_NAV.find(n => n.id === activeTab)?.label.replace(/s$/, '')}
-                          </button>
-                        }
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  data.map(item => <tr key={item.id}></tr>)
-                )}
-              </tbody>
-            </table>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: '#f3effe', color: '#6b3fd4',
+            padding: '4px 12px', borderRadius: 99, fontSize: 11,
+            fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+            marginBottom: 14,
+          }}>
+            <Sparkles size={11} /> Coming Soon
           </div>
-        </div>
 
-        {activeTab === 'blanket' && (
-          <BlanketAgreementModal
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onSave={() => setModalOpen(false)}
-          />
-        )}
-        {activeTab === 'requests' && (
-          <PurchaseRequestModal
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onSave={() => setModalOpen(false)}
-          />
-        )}
-        {activeTab === 'quotes' && (
-          <PurchaseQuotationModal
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onSave={() => setModalOpen(false)}
-          />
-        )}
-        {activeTab === 'orders' && (
-          <PurchaseOrderModal
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onSave={() => setModalOpen(false)}
-          />
-        )}
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 8px', color: 'var(--c-text)' }}>
+            {current?.label}
+          </h2>
+
+          <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--c-text2)', margin: '0 0 22px' }}>
+            {current?.summary}
+          </p>
+
+          <div style={{
+            background: 'var(--c-surface2, var(--c-bg))',
+            border: '1px solid var(--c-border)', borderRadius: 10,
+            padding: '14px 18px', textAlign: 'left',
+            fontSize: 12, color: 'var(--c-text2)', marginBottom: 22,
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--c-text3)',
+              textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
+            }}>
+              Example scenario
+            </div>
+            {current?.useCase}
+          </div>
+
+          <p style={{ fontSize: 12, color: 'var(--c-text3)', margin: 0 }}>
+            This module is being built out. In the meantime, you can still manage AP invoices,
+            vendor payments, goods receipts and returns from the rest of the Purchasing area.
+          </p>
+        </div>
       </main>
     </div>
   )

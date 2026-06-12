@@ -48,20 +48,28 @@ const apiLimiter = rateLimit({
 });
 
 // ========== CORS CONFIGURATION ==========
+const isProd = process.env.NODE_ENV === 'production';
+
+// In dev, allow any localhost / 127.0.0.1 / private-LAN origin so phones
+// scanning QR codes from the same Wi-Fi network can reach the backend.
+const DEV_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+
 const corsConfig = {
   origin: (origin, callback) => {
+    // No Origin header (curl, server-to-server) — allow.
+    if (!origin) return callback(null, true);
+
     const whitelist = [
-      process.env.FRONTEND_URL || 'http://localhost:5174',
-      process.env.BACKEND_URL || 'http://localhost:3000',
+      process.env.FRONTEND_URL,
+      process.env.BACKEND_URL,
       'http://localhost:3000',
       'http://localhost:5174',
-    ];
+    ].filter(Boolean);
 
-    if (!origin || whitelist.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation'));
-    }
+    if (whitelist.includes(origin)) return callback(null, true);
+    if (!isProd && (DEV_ORIGIN_RE.test(origin) || /\.ngrok-free\.dev(:\d+)?$/.test(origin) || /\.ngrok\.io(:\d+)?$/.test(origin))) return callback(null, true);
+
+    callback(new Error('CORS policy violation'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

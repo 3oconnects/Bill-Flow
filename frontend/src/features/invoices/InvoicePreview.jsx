@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Printer, Send, CheckCircle, Truck, MessageCircle, Bell, BellOff, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { invoicesApi, orgApi } from '@/api'
 import { fmt } from '@/lib/utils'
@@ -382,8 +382,22 @@ function RemindersTab({ inv }) {
 // ── Main Modal ─────────────────────────────────────────────────────────
 export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange, onShipmentChange }) {
   const [tab, setTab] = useState('invoice')
+  const qc = useQueryClient()
   const { data: inv, isLoading } = useQuery({ queryKey: ['invoice', invoiceId], queryFn: () => invoicesApi.get(invoiceId) })
   const { data: org } = useQuery({ queryKey: ['org'], queryFn: orgApi.get })
+
+  // Self-sufficient handlers: use the parent's callback if provided, otherwise
+  // perform the update here so the modal works when opened from any page.
+  const statusMut = useMutation({
+    mutationFn: (status) => invoicesApi.updateStatus(invoiceId, status),
+    onSuccess: () => qc.invalidateQueries(['invoice', invoiceId]) && qc.invalidateQueries(['invoices']),
+  })
+  const shipmentMut = useMutation({
+    mutationFn: (status) => invoicesApi.updateShipment(invoiceId, status),
+    onSuccess: () => qc.invalidateQueries(['invoice', invoiceId]) && qc.invalidateQueries(['invoices']),
+  })
+  const handleStatusChange   = onStatusChange   || ((s) => statusMut.mutateAsync(s))
+  const handleShipmentChange = onShipmentChange || ((s) => shipmentMut.mutateAsync(s))
 
   const handlePrint = () => {
     const content = document.getElementById('printable-invoice')
@@ -423,7 +437,7 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
           <div style={{ fontSize: 15, fontWeight: 700 }}>Invoice — {inv?.number}</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {inv && ['sent', 'overdue'].includes(inv.status) && (
-              <button className="btn btn-success" style={{ fontSize: 12 }} onClick={() => onStatusChange('paid')}>
+              <button className="btn btn-success" style={{ fontSize: 12 }} onClick={() => handleStatusChange('paid')}>
                 <CheckCircle size={13} /> Mark Paid
               </button>
             )}
@@ -466,7 +480,7 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
             <>
               {tab === 'invoice'   && <InvoiceTab inv={inv} org={org} />}
               {tab === 'receipt'   && <ReceiptTab inv={inv} />}
-              {tab === 'shipment'  && <ShipmentTab inv={inv} onUpdateShipment={onShipmentChange} />}
+              {tab === 'shipment'  && <ShipmentTab inv={inv} onUpdateShipment={handleShipmentChange} />}
               {tab === 'reminders' && <RemindersTab inv={inv} />}
             </>
           ) : (

@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query'
 import App from './App.jsx'
 import './index.css'
 import './styles/theme.css'
@@ -13,6 +13,9 @@ const queryClient = new QueryClient({
       gcTime:    1000 * 60 * 15,  // 15 min — keep in memory across navigation
       retry: 1,
       refetchOnWindowFocus: false,
+      // Keep showing the previous query's data while a new one loads, so pages
+      // don't blank out / flicker into a full-page spinner on every navigation.
+      placeholderData: keepPreviousData,
     },
   },
 })

@@ -42,6 +42,7 @@ const creditNoteRoutes   = require('./creditNotes');
 const gstRoutes          = require('./gst');
 const bankingRoutes      = require('./banking');
 const razorpayRoutes     = require('./razorpay');
+const vendorPaymentRoutes = require('./vendorPayments');
 
 router.use('/auth',            authRoutes);
 router.use('/org',             orgRoutes);
@@ -62,5 +63,6 @@ router.use('/credit-notes',    creditNoteRoutes);
 router.use('/gst',             gstRoutes);
 router.use('/banking',         bankingRoutes);
 router.use('/razorpay',        razorpayRoutes);
+router.use('/vendor-payments', vendorPaymentRoutes);
 
 module.exports = router;

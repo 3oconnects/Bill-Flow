@@ -2,6 +2,7 @@
 'use strict';
 const { db } = require('../db');
 const { v4: uuid } = require('uuid');
+const CustomerBalance = require('./customerBalanceService');
 
 class PaymentAllocationService {
 
@@ -44,20 +45,24 @@ class PaymentAllocationService {
         const allocNotes  = allocationDetails[invoiceId].notes || null;
 
         const invoice = await client.query(
-          'SELECT id, customer_id, total, COALESCE(paid_amount,0) AS paid_amount FROM invoices WHERE id = $1 AND org_id = $2 FOR UPDATE',
+          'SELECT id, customer_id, total, COALESCE(paid_amount,0) AS paid_amount, COALESCE(credited_amount,0) AS credited_amount FROM invoices WHERE id = $1 AND org_id = $2 FOR UPDATE',
           [invoiceId, orgId]
         );
         if (!invoice.rowCount) throw new Error('Invoice ' + invoiceId + ' not found');
 
         const inv           = invoice.rows[0];
+        const credited      = parseFloat(inv.credited_amount);
         const newPaidAmount = parseFloat(inv.paid_amount) + allocAmount;
 
-        if (newPaidAmount > parseFloat(inv.total) + 0.01) {
-          throw new Error('Overpayment to invoice ' + invoiceId + ': trying to allocate ' + allocAmount + ' but only ' + (inv.total - inv.paid_amount) + ' remaining');
+        // Overpayment cap accounts for any credits already applied to the invoice.
+        if (newPaidAmount + credited > parseFloat(inv.total) + 0.01) {
+          const remaining = parseFloat(inv.total) - parseFloat(inv.paid_amount) - credited;
+          throw new Error('Overpayment to invoice ' + invoiceId + ': trying to allocate ' + allocAmount + ' but only ' + remaining + ' remaining');
         }
 
+        // Settled when cash paid + credits cover the total.
         await client.query(
-          "UPDATE invoices SET paid_amount = $1, status = CASE WHEN $1 >= total THEN 'paid' ELSE 'partially_paid' END, updated_at = NOW() WHERE id = $2",
+          "UPDATE invoices SET paid_amount = $1, status = CASE WHEN ($1 + COALESCE(credited_amount,0)) >= total THEN 'paid' ELSE 'partially_paid' END, updated_at = NOW() WHERE id = $2",
           [newPaidAmount, invoiceId]
         );
 
@@ -68,13 +73,10 @@ class PaymentAllocationService {
       }
 
       if (resolvedCustomerId) {
-        const result = await client.query(
-          "SELECT COALESCE(SUM(total - COALESCE(paid_amount,0)),0) AS outstanding FROM invoices WHERE org_id=$1 AND customer_id=$2 AND status IN ('sent','partially_paid','overdue')",
-          [orgId, resolvedCustomerId]
-        );
+        await CustomerBalance.recompute(client, orgId, resolvedCustomerId);
         await client.query(
-          'UPDATE customers SET outstanding = $1, last_payment_date = NOW() WHERE id = $2',
-          [result.rows[0].outstanding, resolvedCustomerId]
+          'UPDATE customers SET last_payment_date = NOW() WHERE id = $1',
+          [resolvedCustomerId]
         );
       }
 
@@ -93,40 +95,86 @@ class PaymentAllocationService {
     }
   }
 
+  // H7: Apply each payment's unapplied (advance) balance to open invoices FIFO,
+  // creating payment_allocations rows and decrementing the source payment's
+  // unapplied_amount. This makes applied advances fully tracked and reversible
+  // (reversePayment iterates payment_allocations), instead of an untracked
+  // paid_amount bump.
   static async applyUnappliedBalance(orgId, customerId) {
     const client = await db.connect();
     try {
       await client.query('BEGIN');
 
-      const unapplied = await client.query(
-        'SELECT COALESCE(SUM(unapplied_amount),0) AS total_unapplied FROM payments WHERE org_id=$1 AND customer_id=$2 AND deleted_at IS NULL',
+      const payments = await client.query(
+        `SELECT id, COALESCE(unapplied_amount,0) AS unapplied, COALESCE(allocated_amount,0) AS allocated
+           FROM payments
+          WHERE org_id=$1 AND customer_id=$2 AND deleted_at IS NULL
+            AND COALESCE(status,'completed') <> 'reversed'
+            AND COALESCE(unapplied_amount,0) > 0
+          ORDER BY payment_date ASC, created_at ASC
+          FOR UPDATE`,
         [orgId, customerId]
       );
-      let remaining = parseFloat(unapplied.rows[0].total_unapplied);
-      if (remaining <= 0) { await client.query('COMMIT'); return { applied: 0 }; }
+      if (!payments.rowCount) { await client.query('COMMIT'); return { applied: 0 }; }
 
       const invoices = await client.query(
-        "SELECT id, total - COALESCE(paid_amount,0) AS remaining FROM invoices WHERE org_id=$1 AND customer_id=$2 AND status IN ('sent','partially_paid','overdue') ORDER BY due_date ASC, created_at ASC FOR UPDATE",
+        `SELECT id, total, COALESCE(paid_amount,0) AS paid, COALESCE(credited_amount,0) AS credited
+           FROM invoices
+          WHERE org_id=$1 AND customer_id=$2 AND deleted_at IS NULL
+            AND status IN ('sent','partially_paid','overdue')
+          ORDER BY due_date ASC, created_at ASC
+          FOR UPDATE`,
         [orgId, customerId]
       );
 
-      let totalApplied = 0;
-      for (const inv of invoices.rows) {
-        if (remaining <= 0) break;
-        const allocAmount   = Math.min(remaining, parseFloat(inv.remaining));
-        const paidRow       = await client.query('SELECT COALESCE(paid_amount,0) AS paid FROM invoices WHERE id=$1', [inv.id]);
-        const newPaidAmount = parseFloat(paidRow.rows[0].paid) + allocAmount;
+      // Track each invoice's remaining balance in memory as we allocate.
+      const invState = invoices.rows.map((inv) => ({
+        id: inv.id,
+        total: parseFloat(inv.total),
+        paid: parseFloat(inv.paid),
+        remaining: parseFloat(inv.total) - parseFloat(inv.paid) - parseFloat(inv.credited),
+      }));
 
+      let totalApplied = 0;
+
+      for (const pay of payments.rows) {
+        let payRemaining = parseFloat(pay.unapplied);
+        let payAllocated = parseFloat(pay.allocated);
+
+        for (const inv of invState) {
+          if (payRemaining <= 0.001) break;
+          if (inv.remaining <= 0.001) continue;
+
+          const alloc = Math.min(payRemaining, inv.remaining);
+          const newPaid = inv.paid + alloc;
+
+          await client.query(
+            "UPDATE invoices SET paid_amount=$1, status = CASE WHEN ($1 + COALESCE(credited_amount,0)) >= total THEN 'paid' ELSE 'partially_paid' END, updated_at=NOW() WHERE id=$2",
+            [newPaid, inv.id]
+          );
+          await client.query(
+            'INSERT INTO payment_allocations (id, payment_id, invoice_id, amount, notes, created_at) VALUES ($1,$2,$3,$4,$5,NOW())',
+            [uuid(), pay.id, inv.id, alloc, 'Advance balance applied']
+          );
+
+          inv.paid = newPaid;
+          inv.remaining -= alloc;
+          payRemaining -= alloc;
+          payAllocated += alloc;
+          totalApplied += alloc;
+        }
+
+        // Persist the payment's new allocated/unapplied split.
         await client.query(
-          "UPDATE invoices SET paid_amount=$1, status = CASE WHEN $1 >= total THEN 'paid' ELSE 'partially_paid' END WHERE id=$2",
-          [newPaidAmount, inv.id]
+          'UPDATE payments SET allocated_amount=$1, unapplied_amount=$2, updated_at=NOW() WHERE id=$3',
+          [payAllocated, payRemaining, pay.id]
         );
-        remaining    -= allocAmount;
-        totalApplied += allocAmount;
       }
 
+      await CustomerBalance.recompute(client, orgId, customerId);
+
       await client.query('COMMIT');
-      return { applied: totalApplied, remaining: remaining };
+      return { applied: totalApplied };
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -155,13 +203,19 @@ class PaymentAllocationService {
 
       for (const alloc of allocations.rows) {
         const invoice = await client.query(
-          'SELECT paid_amount FROM invoices WHERE id=$1 FOR UPDATE',
+          'SELECT paid_amount, total, COALESCE(credited_amount,0) AS credited FROM invoices WHERE id=$1 FOR UPDATE',
           [alloc.invoice_id]
         );
         if (!invoice.rowCount) continue;
         const newPaidAmount = Math.max(0, parseFloat(invoice.rows[0].paid_amount) - parseFloat(alloc.amount));
+        // Status reflects paid + credited; aging job will re-flag overdue if due.
         await client.query(
-          "UPDATE invoices SET paid_amount=$1, status = CASE WHEN $1 = 0 THEN 'sent' ELSE 'partially_paid' END, updated_at=NOW() WHERE id=$2",
+          `UPDATE invoices SET paid_amount=$1,
+             status = CASE
+               WHEN ($1 + COALESCE(credited_amount,0)) >= total THEN 'paid'
+               WHEN $1 > 0 THEN 'partially_paid'
+               ELSE 'sent' END,
+             updated_at=NOW() WHERE id=$2`,
           [newPaidAmount, alloc.invoice_id]
         );
         await client.query(
@@ -170,20 +224,14 @@ class PaymentAllocationService {
         );
       }
 
+      // Reset the payment's allocation split — fully unapplied now that it's reversed.
       await client.query(
-        "UPDATE payments SET status='reversed', updated_at=NOW() WHERE id=$1",
+        "UPDATE payments SET status='reversed', allocated_amount=0, unapplied_amount=amount, updated_at=NOW() WHERE id=$1",
         [paymentId]
       );
 
       if (customer_id) {
-        const result = await client.query(
-          "SELECT COALESCE(SUM(total - COALESCE(paid_amount,0)),0) AS outstanding FROM invoices WHERE org_id=$1 AND customer_id=$2 AND status IN ('sent','partially_paid','overdue')",
-          [orgId, customer_id]
-        );
-        await client.query(
-          'UPDATE customers SET outstanding=$1 WHERE id=$2',
-          [result.rows[0].outstanding, customer_id]
-        );
+        await CustomerBalance.recompute(client, orgId, customer_id);
       }
 
       await client.query('COMMIT');

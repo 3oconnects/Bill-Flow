@@ -78,14 +78,10 @@ recurringQueue.process(async (job) => {
 
   await InventoryTxnSvc.createInvoiceWithStockDeduction(orgId, invoiceData, items);
 
-  // Schedule next run
-  const nextRun = computeNextRun(t.frequency, today);
-  await db.query(
-    `UPDATE recurring_invoices SET next_run=$1, updated_at=NOW() WHERE id=$2`,
-    [nextRun, templateId]
-  );
-
-  console.log(`[Recurring] Created invoice ${invoiceNumber} for template ${templateId}. Next: ${nextRun}`);
+  // NOTE: next_run is advanced atomically by the scheduler at dispatch time
+  // (see workers/scheduler.js). The worker must NOT advance it again, otherwise
+  // the period would be skipped (double-advance).
+  console.log(`[Recurring] Created invoice ${invoiceNumber} for template ${templateId}`);
 });
 
 console.log('[Workers] recurringInvoiceWorker started');

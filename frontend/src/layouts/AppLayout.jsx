@@ -10,7 +10,7 @@ import {
   // Inventory
   Package, Layers, ArrowRightLeft, DollarSign, AlertTriangle, PieChart,
   // Banking
-  Landmark, Wallet, ArrowDownLeft, UsersRound, ArrowUpRight, GitMerge,
+  Landmark, Wallet, ArrowDownLeft, ArrowUpRight, GitMerge,
   TrendingUp, Lightbulb,
   // Finance
   TrendingDown, Calculator, LineChart, BookOpen, ClipboardList,
@@ -82,7 +82,7 @@ const NAV = [
       { label: 'Banking Overview',   to: '/banking',                  id: 'banking_overview',        icon: Landmark },
       { label: 'Bank Accounts',      to: '/bank-accounts',            id: 'bank_accounts',           icon: Wallet },
       { label: 'Transactions',       to: '/cash-ledger',              id: 'bank_transactions',       icon: ArrowDownLeft },
-      { label: 'Collections Center', to: '/collections',              id: 'collections_center',      icon: UsersRound },
+      { label: 'Collections Center', to: '/collections',              id: 'collections_center',      icon: Users },
       { label: 'Vendor Payments',    to: '/banking-vendor-payments',  id: 'banking_vendor_payments', icon: ArrowUpRight },
       { label: 'Reconciliation',     to: '/reconciliation',           id: 'reconciliation_center',   icon: GitMerge },
       { label: 'Cash Flow Forecast', to: '/cash-forecast',            id: 'cash_flow_forecast',      icon: TrendingUp },

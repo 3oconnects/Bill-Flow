@@ -74,38 +74,61 @@ export class ErrorBoundary extends React.Component<Props, State> {
         return this.props.fallback;
       }
 
+      const isDev = process.env.NODE_ENV === 'development';
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-            {/* Error Icon */}
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-100 rounded-full p-4">
-                <AlertCircle className="w-8 h-8 text-red-600" />
-              </div>
+        <div style={{
+          minHeight: '100vh', width: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24, background: 'var(--c-bg, #f5f7fb)',
+          fontFamily: 'var(--font, system-ui, sans-serif)',
+        }}>
+          <div style={{
+            maxWidth: 480, width: '100%',
+            background: 'var(--c-surface, #fff)',
+            border: '1px solid var(--c-border, #e5e7eb)',
+            borderRadius: 14,
+            boxShadow: '0 12px 32px rgba(15, 23, 42, .08)',
+            padding: 32, textAlign: 'center',
+          }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%',
+              background: 'var(--c-red-lt, #fee2e2)',
+              color: 'var(--c-red, #dc2626)',
+              margin: '0 auto 18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <AlertCircle size={30} />
             </div>
 
-            {/* Error Title */}
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Oops! Something went wrong
+            <h2 style={{
+              fontSize: 20, fontWeight: 700, margin: '0 0 8px',
+              color: 'var(--c-text, #0f172a)',
+            }}>
+              Something went wrong
             </h2>
 
-            {/* Error Message */}
-            <p className="text-gray-600 mb-6">
-              An unexpected error occurred. Our team has been notified and is working to fix it.
+            <p style={{
+              fontSize: 14, lineHeight: 1.5, margin: '0 0 22px',
+              color: 'var(--c-text2, #475569)',
+            }}>
+              An unexpected error occurred. You can try again, refresh the page,
+              or go back to the dashboard.
             </p>
 
-            {/* Error Details (Dev Only) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6 text-left">
-                <p className="text-sm font-mono text-red-800 whitespace-pre-wrap break-words">
-                  {this.state.error.toString()}
-                </p>
+            {isDev && this.state.error && (
+              <div style={{
+                background: 'var(--c-red-lt, #fee2e2)',
+                border: '1px solid var(--c-red, #fecaca)',
+                borderRadius: 8, padding: 12, marginBottom: 20,
+                textAlign: 'left', fontSize: 12, color: 'var(--c-red, #991b1b)',
+                fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                maxHeight: 200, overflow: 'auto',
+              }}>
+                {this.state.error.toString()}
                 {this.state.errorInfo?.componentStack && (
-                  <details className="mt-3">
-                    <summary className="text-sm font-semibold text-red-800 cursor-pointer">
-                      Component Stack
-                    </summary>
-                    <pre className="text-xs text-red-700 mt-2 whitespace-pre-wrap break-words">
+                  <details style={{ marginTop: 8 }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Component stack</summary>
+                    <pre style={{ fontSize: 11, marginTop: 6, whiteSpace: 'pre-wrap' }}>
                       {this.state.errorInfo.componentStack}
                     </pre>
                   </details>
@@ -113,33 +136,28 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={this.handleReset}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Try Again
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={this.handleReset} className="btn btn-primary"
+                style={{ justifyContent: 'center' }}>
+                <RefreshCw size={15} /> Try Again
               </button>
-              <button
-                onClick={this.handleReload}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-              >
+              <button onClick={this.handleReload} className="btn btn-secondary"
+                style={{ justifyContent: 'center' }}>
                 Refresh Page
               </button>
-              <a
-                href="/"
-                className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors text-center"
-              >
+              <a href="/" className="btn btn-ghost"
+                style={{ justifyContent: 'center', textDecoration: 'none' }}>
                 Go Home
               </a>
             </div>
 
-            {/* Help Text */}
-            <p className="text-xs text-gray-500 mt-6">
-              If this problem persists, please contact support at{' '}
-              <a href="mailto:support@billflow.io" className="text-blue-600 hover:underline">
+            <p style={{
+              fontSize: 11, color: 'var(--c-text3, #94a3b8)',
+              marginTop: 22, marginBottom: 0,
+            }}>
+              If this keeps happening, contact{' '}
+              <a href="mailto:support@billflow.io"
+                style={{ color: 'var(--c-primary, #2563eb)', textDecoration: 'none' }}>
                 support@billflow.io
               </a>
             </p>

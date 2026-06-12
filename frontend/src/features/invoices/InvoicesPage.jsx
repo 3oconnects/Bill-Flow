@@ -155,7 +155,7 @@ export default function InvoicesPage() {
               </thead>
               <tbody>
                 {filtered.map((inv) => (
-                  <tr key={inv.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/invoices/${inv.id}`)}>
+                  <tr key={inv.id} style={{ cursor: 'pointer' }} onClick={() => setPreviewId(inv.id)}>
                     <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{inv.number}</td>
                     <td>
                       <div style={{ fontWeight: 500 }}>{inv.customer_name}</div>

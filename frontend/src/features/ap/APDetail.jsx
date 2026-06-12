@@ -5,6 +5,7 @@ import { fmt } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { APStatusBadge } from './tabs/APTabShell'
 import { toast } from '@/store/toastStore'
+import RecordVendorPaymentModal from '@/features/purchasing/RecordVendorPaymentModal'
 import {
   Edit2, CheckCircle, FileText, DollarSign, XCircle,
   RotateCcw, User, Copy,
@@ -123,8 +124,10 @@ export default function APDetail({ type, docId, onClose, onEdit, onSetFooter }) 
         <button key="app" className="btn btn-primary btn-sm" onClick={() => setModal('approve')}>Approve</button>
       )
     }
-    if (isAdmin && data.status === 'approved') {
-      if (type === 'invoices' || type === 'down-payments') {
+    if (isAdmin && (data.status === 'approved' || data.status === 'partially_paid')) {
+      if (type === 'invoices') {
+        actions.push(<button key="pay" className="btn btn-primary btn-sm" onClick={() => setModal('payvendor')}>Record Payment</button>)
+      } else if (type === 'down-payments') {
         actions.push(<button key="pay" className="btn btn-primary btn-sm" onClick={() => setModal('pay')}>Record Payment</button>)
       }
       if (type === 'reserve-invoices') {
@@ -350,8 +353,17 @@ export default function APDetail({ type, docId, onClose, onEdit, onSetFooter }) 
         }
       </div>
 
-      {/* ── Action Modal ──────────────────────── */}
-      {modal && (
+      {/* ── New Vendor Payment Modal (for AP invoices) ── */}
+      {modal === 'payvendor' && (
+        <RecordVendorPaymentModal
+          apInvoice={data}
+          onClose={() => setModal(null)}
+          onSuccess={() => qc.invalidateQueries(['ap-doc', type, id])}
+        />
+      )}
+
+      {/* ── Legacy Action Modal ──────────────────── */}
+      {modal && modal !== 'payvendor' && (
         <div className="modal-overlay" style={{ zIndex: 800 }} onClick={() => setModal(null)}>
           <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <div className="modal-header">

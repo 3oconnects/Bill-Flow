@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, MoreVertical, Eye, Edit2, Trash2, Users } from 'lucide-react'
+import {
+  Plus, Search, MoreVertical, Eye, Edit2, Trash2, Users,
+  UserPlus, AlertTriangle, Wallet, ShieldCheck, TrendingUp,
+} from 'lucide-react'
 import { customersApi } from '@/api'
 import { fmt, statusBadge } from '@/lib/utils'
 import { PageLoading, EmptyState, Badge } from '@/components/ui'
@@ -47,6 +50,45 @@ export default function CustomersPage() {
     c.phone?.includes(search)
   )
 
+  // ── KPIs ────────────────────────────────────────────────────────────────
+  const kpis = useMemo(() => {
+    const now      = Date.now()
+    const day      = 86400000
+    const last30   = now - 30 * day
+    const prev30   = now - 60 * day
+    const totalOutstanding = customers.reduce((s, c) => s + (Number(c.outstanding) || 0), 0)
+    const totalCredit      = customers.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
+    const withOutstanding  = customers.filter(c => Number(c.outstanding) > 0)
+    const overLimit        = customers.filter(c =>
+      Number(c.credit_limit) > 0 && Number(c.outstanding) > Number(c.credit_limit))
+    const newThisMonth = customers.filter(c => {
+      const t = c.created_at ? new Date(c.created_at).getTime() : 0
+      return t >= last30
+    })
+    const newPrevMonth = customers.filter(c => {
+      const t = c.created_at ? new Date(c.created_at).getTime() : 0
+      return t >= prev30 && t < last30
+    })
+    const growthPct = newPrevMonth.length
+      ? Math.round(((newThisMonth.length - newPrevMonth.length) / newPrevMonth.length) * 100)
+      : (newThisMonth.length ? 100 : 0)
+    const gstinRegistered = customers.filter(c => c.gstin && c.gstin.trim()).length
+    const gstinPct = customers.length
+      ? Math.round((gstinRegistered / customers.length) * 100) : 0
+
+    return {
+      total: customers.length,
+      newThisMonth: newThisMonth.length,
+      growthPct,
+      withOutstanding: withOutstanding.length,
+      totalOutstanding,
+      overLimit: overLimit.length,
+      totalCredit,
+      gstinRegistered,
+      gstinPct,
+    }
+  }, [customers])
+
   const handleDelete = (c) => {
     if (window.confirm(`Delete customer "${c.name}"? This cannot be undone.`)) {
       deleteMut.mutate(c.id)
@@ -57,6 +99,57 @@ export default function CustomersPage() {
  
   return (
     <div>
+      {/* KPIs */}
+      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(6,1fr)', marginBottom: 20 }}>
+        <div className="kpi-card blue">
+          <div className="kpi-icon"><Users size={18} /></div>
+          <div className="kpi-label">Total Customers</div>
+          <div className="kpi-value" style={{ fontSize: 18 }}>{kpis.total}</div>
+          <div className="kpi-sub">In your book</div>
+        </div>
+
+        <div className="kpi-card green">
+          <div className="kpi-icon"><UserPlus size={18} /></div>
+          <div className="kpi-label">New This Month</div>
+          <div className="kpi-value" style={{ fontSize: 18 }}>{kpis.newThisMonth}</div>
+          <div className="kpi-sub" style={{
+            color: kpis.growthPct >= 0 ? 'var(--c-green, #0a8754)' : 'var(--c-red, #d63d3d)',
+            fontWeight: 600,
+          }}>
+            <TrendingUp size={11} style={{ verticalAlign: 'middle', marginRight: 2 }} />
+            {kpis.growthPct >= 0 ? '+' : ''}{kpis.growthPct}% vs prev 30d
+          </div>
+        </div>
+
+        <div className="kpi-card orange">
+          <div className="kpi-icon"><Wallet size={18} /></div>
+          <div className="kpi-label">Outstanding Receivables</div>
+          <div className="kpi-value" style={{ fontSize: 16 }}>{fmt.currency(kpis.totalOutstanding)}</div>
+          <div className="kpi-sub">Across {kpis.withOutstanding} customers</div>
+        </div>
+
+        <div className="kpi-card red">
+          <div className="kpi-icon"><AlertTriangle size={18} /></div>
+          <div className="kpi-label">Over Credit Limit</div>
+          <div className="kpi-value" style={{ fontSize: 18 }}>{kpis.overLimit}</div>
+          <div className="kpi-sub">Needs review</div>
+        </div>
+
+        <div className="kpi-card purple">
+          <div className="kpi-icon"><ShieldCheck size={18} /></div>
+          <div className="kpi-label">Credit Extended</div>
+          <div className="kpi-value" style={{ fontSize: 16 }}>{fmt.currency(kpis.totalCredit)}</div>
+          <div className="kpi-sub">Combined credit lines</div>
+        </div>
+
+        <div className="kpi-card blue">
+          <div className="kpi-icon"><ShieldCheck size={18} /></div>
+          <div className="kpi-label">GSTIN Registered</div>
+          <div className="kpi-value" style={{ fontSize: 18 }}>{kpis.gstinPct}%</div>
+          <div className="kpi-sub">{kpis.gstinRegistered} of {kpis.total} customers</div>
+        </div>
+      </div>
+
       {/* Page Content */}
       <div className="card">
         <div className="filter-bar" style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-border)' }}>

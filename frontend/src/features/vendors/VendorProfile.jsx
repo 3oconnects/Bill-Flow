@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Edit2, FileText, TrendingDown, Package, Upload, Trash2, Plus, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Edit2, FileText, TrendingDown, Package, Upload, Trash2, Plus, ExternalLink, Receipt, Banknote } from 'lucide-react'
+import RecordVendorPaymentModal from '@/features/purchasing/RecordVendorPaymentModal'
 import { vendorsApi } from '@/api'
 import { fmt } from '@/lib/utils'
 import { PageLoading, Badge, Spinner } from '@/components/ui'
@@ -50,6 +51,7 @@ export default function VendorProfile() {
   const qc = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
   const [docOpen, setDocOpen] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
 
   const { data, isLoading } = useQuery({ queryKey: ['vendor', id], queryFn: () => vendorsApi.get(id) })
@@ -84,7 +86,19 @@ export default function VendorProfile() {
         </div>
         <div className="page-header-right" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <Badge status={v.status} />
-          <button className="btn btn-secondary" onClick={() => setEditOpen(true)}><Edit2 size={14} /> Edit Vendor</button>
+          <button className="btn btn-ghost"
+            onClick={() => navigate(`/ap?type=invoices&vendor_id=${v.id}&new=1`)}
+            title="Create a new AP invoice for this vendor">
+            <Receipt size={14} /> New AP Invoice
+          </button>
+          <button className="btn btn-ghost"
+            onClick={() => setPayOpen(true)}
+            title="Record a payment to this vendor">
+            <Banknote size={14} /> Record Payment
+          </button>
+          <button className="btn btn-secondary" onClick={() => setEditOpen(true)}>
+            <Edit2 size={14} /> Edit Vendor
+          </button>
         </div>
       </div>
 
@@ -312,6 +326,13 @@ export default function VendorProfile() {
         <Modal title="Add Document" onClose={() => setDocOpen(false)}>
           <DocUploadModal vendorId={id} onSuccess={() => { setDocOpen(false); qc.invalidateQueries(['vendor', id]) }} onCancel={() => setDocOpen(false)} />
         </Modal>
+      )}
+      {payOpen && (
+        <RecordVendorPaymentModal
+          apInvoice={null}
+          onClose={() => setPayOpen(false)}
+          onSuccess={() => qc.invalidateQueries(['vendor', id])}
+        />
       )}
     </div>
   )

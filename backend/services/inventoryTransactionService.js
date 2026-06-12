@@ -3,6 +3,7 @@
 const { db } = require('../db');
 const { v4: uuid } = require('uuid');
 const GSTCalculationService = require('./gstCalculationService');
+const CustomerBalance = require('./customerBalanceService');
 
 class InventoryTransactionService {
 
@@ -116,12 +117,9 @@ class InventoryTransactionService {
          new Date().getMonth() + 1, new Date().getFullYear()]
       );
 
-      // Update customer outstanding
+      // Recompute customer outstanding from the ledger (no cache drift).
       if (invoiceData.customer_id) {
-        await client.query(
-          'UPDATE customers SET outstanding = outstanding + $1, updated_at = NOW() WHERE id = $2 AND org_id = $3',
-          [parseFloat(invoiceData.total || 0), invoiceData.customer_id, orgId]
-        );
+        await CustomerBalance.recompute(client, orgId, invoiceData.customer_id);
       }
 
       await client.query('COMMIT');
@@ -224,14 +222,7 @@ class InventoryTransactionService {
       );
 
       if (opts.customer_id) {
-        var result = await client.query(
-          "SELECT COALESCE(SUM(total - COALESCE(paid_amount,0)), 0) AS outstanding FROM invoices WHERE org_id=$1 AND customer_id=$2 AND status IN ('sent','partially_paid','overdue') AND deleted_at IS NULL",
-          [orgId, opts.customer_id]
-        );
-        await client.query(
-          'UPDATE customers SET outstanding=$1, updated_at=NOW() WHERE id=$2',
-          [result.rows[0].outstanding, opts.customer_id]
-        );
+        await CustomerBalance.recompute(client, orgId, opts.customer_id);
       }
 
       await client.query('COMMIT');
@@ -322,10 +313,7 @@ class InventoryTransactionService {
       }
 
       if (customerId) {
-        await client.query(
-          'UPDATE customers SET outstanding = outstanding - $1 WHERE id = $2 AND org_id = $3',
-          [totalReturnVal, customerId, orgId]
-        );
+        await CustomerBalance.recompute(client, orgId, customerId);
       }
 
       await client.query('COMMIT');

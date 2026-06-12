@@ -9,7 +9,7 @@ import { PageLoading } from '@/components/ui'
 import {
   TrendingUp, Clock, CheckCircle2, Plus,
   Search, AlertTriangle, BarChart3, DollarSign, Target,
-  ChevronRight, Zap,
+  ChevronRight, Zap, XCircle,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
@@ -90,7 +90,7 @@ export default function QuotationsPage() {
   return (
     <div>
       {/* KPIs */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(6,1fr)', marginBottom: 20 }}>
+      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 20 }}>
         <div className="kpi-card blue">
           <div className="kpi-icon"><DollarSign size={18} /></div>
           <div className="kpi-label">Total Pipeline</div>
@@ -120,6 +120,14 @@ export default function QuotationsPage() {
           <div className="kpi-label">Expiring ≤7d</div>
           <div className="kpi-value" style={{ fontSize: 16 }}>{stats?.expiring?.count || 0}</div>
           <div className="kpi-sub">{fmt.currency(stats?.expiring?.value || 0)}</div>
+        </div>
+        <div className="kpi-card red">
+          <div className="kpi-icon"><XCircle size={18} /></div>
+          <div className="kpi-label">Lost</div>
+          <div className="kpi-value" style={{ fontSize: 16 }}>{fmt.currency(t.lost_value || 0)}</div>
+          <div className="kpi-sub">
+            {t.lost_count || 0} ({t.loss_rate || 0}%) — {t.rejected_count || 0} rej · {t.expired_count || 0} exp
+          </div>
         </div>
         <div className="kpi-card green">
           <div className="kpi-icon"><TrendingUp size={18} /></div>

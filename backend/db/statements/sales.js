@@ -34,8 +34,8 @@ module.exports = {
 
   // Warranty Claims
   insertWarrantyClaim: db.prepare(`INSERT INTO warranty_claims (id, org_id, customer_id, invoice_id, invoice_number, product_name, model_number, issue_description, proof_url, storage_key, status, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`),
-  getWarrantyClaims: db.prepare(`SELECT id, org_id, customer_id, invoice_id, invoice_number, product_name, model_number, issue_description, proof_url, storage_key, status, notes, created_at FROM warranty_claims WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`),
-  getWarrantyClaimsByCustomer: db.prepare(`SELECT id, org_id, customer_id, invoice_id, invoice_number, product_name, model_number, issue_description, proof_url, storage_key, status, notes, created_at FROM warranty_claims WHERE org_id = ? AND customer_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`),
+  getWarrantyClaims: db.prepare(`SELECT w.id, w.org_id, w.customer_id, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone, w.invoice_id, w.invoice_number, w.product_name, w.model_number, w.issue_description, w.proof_url, w.storage_key, w.status, w.notes, w.created_at, w.updated_at FROM warranty_claims w LEFT JOIN customers c ON c.id = w.customer_id AND c.org_id = w.org_id WHERE w.org_id = ? AND w.deleted_at IS NULL ORDER BY w.created_at DESC`),
+  getWarrantyClaimsByCustomer: db.prepare(`SELECT w.id, w.org_id, w.customer_id, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone, w.invoice_id, w.invoice_number, w.product_name, w.model_number, w.issue_description, w.proof_url, w.storage_key, w.status, w.notes, w.created_at, w.updated_at FROM warranty_claims w LEFT JOIN customers c ON c.id = w.customer_id AND c.org_id = w.org_id WHERE w.org_id = ? AND w.customer_id = ? AND w.deleted_at IS NULL ORDER BY w.created_at DESC`),
   updateWarrantyClaimStatus: db.prepare(`UPDATE warranty_claims SET status=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
   deleteWarrantyClaim: db.prepare(`UPDATE warranty_claims SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
 };

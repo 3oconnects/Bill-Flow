@@ -99,6 +99,24 @@ function PageSuspense() {
   )
 }
 
+// Warm the most-visited route chunks during browser idle time so navigating to
+// them doesn't trigger a cold chunk fetch + Suspense flash. import() is cached
+// by the bundler, so this is a no-op if the chunk is already loaded.
+function prefetchCommonChunks() {
+  const chunks = [
+    () => import('@/features/dashboard/DashboardPage'),
+    () => import('@/features/customers/CustomersPage'),
+    () => import('@/features/customers/CustomerDetail'),
+    () => import('@/features/sales/QuotationsPage'),
+    () => import('@/features/invoices/InvoicesPage'),
+    () => import('@/features/invoices/InvoiceDetail'),
+    () => import('@/features/payments/PaymentsPage'),
+    () => import('@/features/products/ProductsPage'),
+    () => import('@/features/products/ProductDetail'),
+  ]
+  chunks.forEach((load) => { load().catch(() => {}) })
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const { ready, setAuth, clearAuth, setReady } = useAuthStore()
@@ -110,6 +128,17 @@ export default function App() {
       .catch(() => clearAuth())
       .finally(() => setReady())
   }, []) // eslint-disable-line
+
+  // Prefetch common pages once authenticated, during idle time.
+  useEffect(() => {
+    if (!ready) return
+    const ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1500))
+    const handle = ric(prefetchCommonChunks)
+    return () => {
+      const cancel = window.cancelIdleCallback
+      if (cancel && typeof handle === 'number') cancel(handle)
+    }
+  }, [ready])
 
   if (!ready) {
     return (

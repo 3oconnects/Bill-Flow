@@ -64,7 +64,7 @@ export default function CustomerForm({ initial, onSuccess, onCancel }) {
             </div>
             <div className="form-group-row">
               <label>Credit Limit</label>
-              <input className="form-input sm" type="number" {...register('credit_limit')} placeholder="0" />
+              <input className="form-input sm" type="number" {...register('credit_limit', { valueAsNumber: true })} placeholder="0" />
             </div>
           </div>
         </div>

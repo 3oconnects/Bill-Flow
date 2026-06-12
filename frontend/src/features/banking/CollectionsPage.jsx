@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTopbarStore } from '@/store/topbarStore'
-import { UsersRound, AlertTriangle, DollarSign, Clock, Send, Eye, CheckCircle, TrendingDown, Search } from 'lucide-react'
+import { Users, AlertTriangle, DollarSign, Clock, Send, Eye, CheckCircle, TrendingDown, Search } from 'lucide-react'
 import { EmptyState } from '@/components/ui'
 import { fmt } from '@/lib/utils'
 
@@ -133,7 +133,7 @@ export default function CollectionsPage() {
         {filteredOverdues.length === 0 ? (
           <div style={{ padding: '80px 24px', textAlign: 'center' }}>
             <EmptyState
-              icon={<UsersRound size={48} />}
+              icon={<Users size={48} />}
               title="No overdue invoices found"
               description={searchTerm || selectedStatus !== 'all'
                 ? "Try adjusting your filters or search terms."
