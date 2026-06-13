@@ -1,0 +1,141 @@
+# render.yaml — Render Blueprint for BillFlow Pro
+# Deploy: connect this repo on https://dashboard.render.com/blueprints
+#
+# Creates:
+#   - billflow-backend  (Node web service, Express API)
+#   - billflow-frontend (Static site, Vite/React build, proxies /api/* to backend)
+#   - billflow-redis    (Redis, used for recurring billing + report caching)
+#   - billflow-db       (Postgres database)
+#
+# After first deploy:
+#   1. Set RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
+#      RESEND_API_KEY and EMAIL_FROM on billflow-backend (marked sync: false below).
+#   2. Run DB migrations once: open a Shell on billflow-backend and run
+#      `npm run db:migrate`.
+#   3. If Render assigns different service URLs than the defaults below,
+#      update FRONTEND_URL / BACKEND_URL and the rewrite destination to match.
+
+databases:
+  - name: billflow-db
+    databaseName: billflow_pro
+    user: billflow
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # ── Backend API ────────────────────────────────────────────────────────────
+  - type: web
+    name: billflow-backend
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: .
+    buildCommand: npm install
+    startCommand: node backend/server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+
+      # Database (from billflow-db above)
+      - key: DB_HOST
+        fromDatabase:
+          name: billflow-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: billflow-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: billflow-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: billflow-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: billflow-db
+          property: password
+      - key: DB_SSL
+        value: "true"
+      - key: DB_POOL_MAX
+        value: "25"
+
+      # Redis
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: billflow-redis
+          property: connectionString
+
+      # Auth secrets — Render generates strong random values
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECRET
+        generateValue: true
+
+      # URLs — update if Render assigns different service hostnames
+      - key: FRONTEND_URL
+        value: https://billflow-frontend.onrender.com
+      - key: BACKEND_URL
+        value: https://billflow-backend.onrender.com
+
+      # Razorpay — fill in from Render dashboard (not stored in repo)
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+      # Email (Resend)
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # Monitoring (optional)
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.1"
+      - key: LOG_LEVEL
+        value: info
+
+  # ── Redis (recurring billing queue + report cache) ──────────────────────────
+  - type: redis
+    name: billflow-redis
+    plan: starter
+    region: oregon
+    ipAllowList: []
+
+  # ── Frontend (Vite/React static build) ──────────────────────────────────────
+  - type: web
+    name: billflow-frontend
+    runtime: static
+    rootDir: .
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    autoDeploy: true
+    routes:
+      # Proxy API calls (frontend uses relative "/api" base URL) to the backend
+      - type: rewrite
+        source: /api/*
+        destination: https://billflow-backend.onrender.com/api/*
+      # SPA fallback for client-side routing
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
