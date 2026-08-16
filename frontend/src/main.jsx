@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/re
 import App from './App.jsx'
 import './index.css'
 import './styles/theme.css'
+import './styles/landing.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

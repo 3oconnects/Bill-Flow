@@ -6,7 +6,7 @@ const path = require('path');
 const db   = require('./conn');
 
 async function runMigrations() {
-  console.log('🚀 BillFlow DB Migration Runner');
+  console.log('🚀 Ozofi Books DB Migration Runner');
   console.log('==============================');
 
   try {

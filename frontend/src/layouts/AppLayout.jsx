@@ -26,6 +26,8 @@ import { authApi } from '@/api'
 import { toast } from '@/store/toastStore'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ROLE_PAGE_ACCESS, fmt } from '@/lib/utils'
+import { AlertCircle } from 'lucide-react'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 // ── NAV configuration — new architecture ─────────────────────────────────────
 const NAV = [
@@ -55,7 +57,6 @@ const NAV = [
       { label: 'Vendors',               to: '/vendors',               id: 'vendors',              icon: Building2 },
       { label: 'Purchase Orders',       to: '/purchases',             id: 'purchase_orders',      icon: ShoppingCart },
       { label: 'Goods Management',      to: '/goods',                 id: 'goods_mgmt',           icon: PackageCheck },
-      { label: 'Goods Returns',         to: '/goods-returns',         id: 'goods_returns',        icon: PackageX },
       { label: 'Accounts Payable',      to: '/ap',                    id: 'accounts_payable',     icon: Receipt },
       { label: 'Vendor Payments',       to: '/vendor-payments',       id: 'vendor_payments',      icon: Banknote },
       { label: 'Procurement Analytics', to: '/procurement-analysis',  id: 'procurement_analytics',icon: BarChart3 },
@@ -194,6 +195,7 @@ export default function AppLayout() {
   const location = useLocation()
   const [collapsed, setCollapsed]       = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [resending, setResending] = useState(false)
   const userMenuRef = useRef(null)
   const allowed = ROLE_PAGE_ACCESS[user?.role] || ROLE_PAGE_ACCESS.member
 
@@ -212,6 +214,18 @@ export default function AppLayout() {
     navigate('/login')
   }
 
+  const handleResendVerification = async () => {
+    try {
+      setResending(true)
+      await authApi.resendVerify()
+      toast.success('Verification email sent! Check your inbox.')
+    } catch (err) {
+      toast.error(err.message || 'Failed to resend verification email')
+    } finally {
+      setResending(false)
+    }
+  }
+
   return (
     <div className="app-layout">
 
@@ -220,12 +234,12 @@ export default function AppLayout() {
 
         {/* Org header */}
         <div className="sidebar-header" onClick={() => navigate('/settings')} style={{ cursor: 'pointer' }}>
-          <div className="org-avatar">
-            {collapsed ? 'B' : fmt.initials(org?.name || 'B')}
+          <div className="org-avatar" style={{ background: 'transparent', padding: 0 }}>
+            <img src="/logo.png?v=2" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.4)' }} />
           </div>
           {!collapsed && (
             <div className="org-info">
-              <div className="org-name">{org?.name || 'BillFlow ERP'}</div>
+              <div className="org-name">{org?.name || 'Ozofi Books ERP'}</div>
               <div className="org-role">{user?.role}</div>
             </div>
           )}
@@ -331,9 +345,29 @@ export default function AppLayout() {
         </header>
 
         <main className="main-content">
+          {user && !user.email_verified && (
+            <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <AlertCircle size={20} color="#d97706" />
+                <div>
+                  <div style={{ fontWeight: 600, color: '#b45309', fontSize: 14 }}>Please verify your email address</div>
+                  <div style={{ fontSize: 13, color: '#d97706' }}>You must verify your email to unlock all platform features.</div>
+                </div>
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                style={{ background: '#fff', color: '#b45309', border: '1px solid rgba(245, 158, 11, 0.5)' }}
+                onClick={handleResendVerification}
+                disabled={resending}
+              >
+                {resending ? 'Sending...' : 'Resend Email'}
+              </button>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>
+      <ConfirmDialog />
     </div>
   )
 }

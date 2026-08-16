@@ -1,4 +1,4 @@
-# BillFlow Pro — Complete Implementation Guide
+# Ozofi Books Pro — Complete Implementation Guide
 
 All 11 architectural improvements have been completed. This guide covers what was implemented and how to use each feature.
 
@@ -358,7 +358,7 @@ export default function App() {
     <div>
       {/* Header */}
       <header className="flex justify-between items-center">
-        <h1>BillFlow</h1>
+        <h1>Ozofi Books</h1>
         <ThemeToggle /> {/* Sun/Moon toggle */}
       </header>
 
@@ -408,7 +408,7 @@ function MyComponent() {
 
 ### 1. Install Dependencies
 ```bash
-cd billflow-improved
+cd ozofibooks-improved
 npm install
 npm install --prefix frontend
 ```

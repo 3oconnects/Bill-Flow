@@ -1,4 +1,4 @@
-# BillFlow — Roles & Permissions Improvements
+# Ozofi Books — Roles & Permissions Improvements
 
 ## What Changed
 

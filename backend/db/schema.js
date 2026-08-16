@@ -5,6 +5,7 @@ const initCore         = require('./schema/core');
 const initSales        = require('./schema/sales');
 const initPurchasing   = require('./schema/purchasing');
 const initFinance      = require('./schema/finance');
+const initSaas         = require('./schema/saas');
 const initInventoryExt = require('./schema/inventory_ext');
 
 async function initSchema() {
@@ -16,6 +17,8 @@ async function initSchema() {
     await initSales();
     await initPurchasing();
     await initFinance();
+    await reconcileSalesDrift(); // Ensure payment_allocations exists with org_id before Saas init
+    await initSaas();           // plans, subscriptions, org_roles, RLS helper
     await initInventoryExt(); // supplementary: inventory_transactions, gst_ledger, invoice GST cols
 
     // Updated-at triggers for mutable tables
@@ -24,13 +27,18 @@ async function initSchema() {
       'invoices','invoice_items','payments','expenses','warranty_claims',
       'vendor_documents','goods_returns',
       'ap_down_payments','ap_invoices','ap_credit_memos','ap_reserve_invoices',
+      'org_roles','subscriptions',
     ];
     for (const t of triggerTables) {
-      await db.query(`DROP TRIGGER IF EXISTS trg_updated_at ON ${t}`);
+      await db.query(`DROP TRIGGER IF EXISTS trg_updated_at ON ${t}`).catch(() => {});
       await db.query(
         `CREATE TRIGGER trg_updated_at BEFORE UPDATE ON ${t}
          FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()`
-      );
+      ).catch((e) => {
+        if (!e.message.includes('already exists')) {
+          console.error(`Error creating trigger for ${t}:`, e);
+        }
+      });
     }
 
     // Composite unique indexes for FK targets
@@ -53,8 +61,6 @@ async function initSchema() {
     // NOTE: id columns are TEXT here to match the base schema/*.js definitions. We
     // deliberately do NOT convert TEXT<->UUID on existing tables — that is a
     // breaking migration and is intentionally out of scope.
-    await reconcileSalesDrift();
-
     console.log('✅ PostgreSQL schema initialized successfully.');
   } catch (err) {
     console.error('Schema init error:', err);
@@ -92,12 +98,14 @@ async function reconcileSalesDrift() {
     // payment_allocations — referenced by paymentAllocationService
     `CREATE TABLE IF NOT EXISTS payment_allocations (
        id TEXT PRIMARY KEY,
+       org_id TEXT,
        payment_id TEXT NOT NULL,
        invoice_id TEXT NOT NULL,
        amount NUMERIC(14,2) NOT NULL,
        notes TEXT,
        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
      )`,
+    `ALTER TABLE payment_allocations ADD COLUMN IF NOT EXISTS org_id TEXT`,
     `CREATE INDEX IF NOT EXISTS idx_payalloc_payment ON payment_allocations(payment_id)`,
     `CREATE INDEX IF NOT EXISTS idx_payalloc_invoice ON payment_allocations(invoice_id)`,
   ];

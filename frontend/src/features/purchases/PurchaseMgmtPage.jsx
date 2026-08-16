@@ -4,6 +4,10 @@ import {
   ShoppingBag, ClipboardList, FileCheck, ShieldCheck,
   ChevronLeft, Construction, Sparkles,
 } from 'lucide-react'
+import PurchaseQuotationsTab from './PurchaseQuotationsTab'
+import PurchaseOrdersTab from './PurchaseOrdersTab'
+import BlanketAgreementsTab from './BlanketAgreementsTab'
+import PurchaseRequestsTab from './PurchaseRequestsTab'
 
 const PUR_NAV = [
   {
@@ -65,59 +69,11 @@ export default function PurchaseMgmtPage() {
         </div>
       </aside>
 
-      <main className="secondary-content">
-        <div style={{
-          maxWidth: 720, margin: '60px auto', padding: 32,
-          background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-          borderRadius: 14, textAlign: 'center',
-        }}>
-          <div style={{
-            width: 72, height: 72, borderRadius: '50%',
-            background: 'var(--c-primary-lt)', color: 'var(--c-primary)',
-            margin: '0 auto 18px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Construction size={32} />
-          </div>
-
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: '#f3effe', color: '#6b3fd4',
-            padding: '4px 12px', borderRadius: 99, fontSize: 11,
-            fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
-            marginBottom: 14,
-          }}>
-            <Sparkles size={11} /> Coming Soon
-          </div>
-
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 8px', color: 'var(--c-text)' }}>
-            {current?.label}
-          </h2>
-
-          <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--c-text2)', margin: '0 0 22px' }}>
-            {current?.summary}
-          </p>
-
-          <div style={{
-            background: 'var(--c-surface2, var(--c-bg))',
-            border: '1px solid var(--c-border)', borderRadius: 10,
-            padding: '14px 18px', textAlign: 'left',
-            fontSize: 12, color: 'var(--c-text2)', marginBottom: 22,
-          }}>
-            <div style={{
-              fontSize: 10, fontWeight: 700, color: 'var(--c-text3)',
-              textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
-            }}>
-              Example scenario
-            </div>
-            {current?.useCase}
-          </div>
-
-          <p style={{ fontSize: 12, color: 'var(--c-text3)', margin: 0 }}>
-            This module is being built out. In the meantime, you can still manage AP invoices,
-            vendor payments, goods receipts and returns from the rest of the Purchasing area.
-          </p>
-        </div>
+      <main className="secondary-content" style={{ display: 'flex', flexDirection: 'column' }}>
+        {activeTab === 'blanket' && <BlanketAgreementsTab />}
+        {activeTab === 'requests' && <PurchaseRequestsTab />}
+        {activeTab === 'quotes' && <PurchaseQuotationsTab />}
+        {activeTab === 'orders' && <PurchaseOrdersTab />}
       </main>
     </div>
   )

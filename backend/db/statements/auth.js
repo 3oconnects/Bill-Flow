@@ -8,13 +8,17 @@ module.exports = {
   setOrgCreator: db.prepare(`UPDATE organizations SET created_by = ? WHERE id = ?`),
 
   insertUser: db.prepare(`INSERT INTO users (id, org_id, name, email, password_hash, role, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`),
-  getUserByEmail: db.prepare(`SELECT id, org_id, name, email, password_hash, role, is_active, last_login, created_at FROM users WHERE email = ? AND deleted_at IS NULL`),
-  getUserById: db.prepare(`SELECT id, org_id, name, email, role, is_active, last_login, created_at FROM users WHERE id = ? AND deleted_at IS NULL`),
+  getUserByEmail: db.prepare(`SELECT id, org_id, name, email, password_hash, role, is_active, last_login, created_at, email_verified FROM users WHERE email = ? AND deleted_at IS NULL`),
+  getUserById: db.prepare(`SELECT id, org_id, name, email, role, is_active, last_login, created_at, email_verified FROM users WHERE id = ? AND deleted_at IS NULL`),
   updateLastLogin: db.prepare(`UPDATE users SET last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`),
   getOrgUsers: db.prepare(`SELECT id, name, email, role, is_active, last_login, created_at FROM users WHERE org_id = ? AND deleted_at IS NULL ORDER BY name`),
   updateUser: db.prepare(`UPDATE users SET name=?, email=?, role=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
   deleteUser: db.prepare(`UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=? AND role != 'owner'`),
   updatePassword: db.prepare(`UPDATE users SET password_hash=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`),
+  
+  setVerificationToken: db.prepare(`UPDATE users SET email_verify_token=?, email_verify_expires=? WHERE id=?`),
+  getUserByVerificationToken: db.prepare(`SELECT id, email, name FROM users WHERE email_verify_token=? AND email_verify_expires > CURRENT_TIMESTAMP AND deleted_at IS NULL`),
+  markEmailVerified: db.prepare(`UPDATE users SET email_verified=TRUE, email_verify_token=NULL, email_verify_expires=NULL WHERE id=?`),
 
   insertSession: db.prepare(`INSERT INTO sessions (token, user_id, org_id, expires_at) VALUES (?, ?, ?, ?)`),
   getSession: db.prepare(`SELECT token, user_id, org_id, expires_at, created_at FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP`),

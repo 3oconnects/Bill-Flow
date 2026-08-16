@@ -36,7 +36,7 @@ for (const envVar of requiredEnvVars) {
 
 // ========== VALIDATE PRODUCTION SETTINGS ==========
 if (process.env.NODE_ENV === 'production') {
-  if (process.env.JWT_SECRET === 'billflow-pro-secret-key-123') {
+  if (process.env.JWT_SECRET === 'ozofibooks-pro-secret-key-123') {
     console.error('SECURITY ERROR: Using default JWT_SECRET in production. Set JWT_SECRET environment variable.');
     process.exit(1);
   }
@@ -139,7 +139,7 @@ app.use((err, req, res, next) => {
 // ========== GRACEFUL SHUTDOWN ==========
 const server = require.main === module ? app.listen(PORT, () => {
   console.log(`\n╔════════════════════════════════════════╗`);
-  console.log(`║  BillFlow Pro Backend - Production    ║`);
+  console.log(`║  Ozofi Books Pro Backend - Production    ║`);
   console.log(`║  http://localhost:${PORT}${' '.repeat(13 - String(PORT).length)}║`);
   console.log(`║  Node: ${process.version}${' '.repeat(28 - process.version.length)}║`);
   console.log(`║  Environment: ${process.env.NODE_ENV}${' '.repeat(21 - process.env.NODE_ENV.length)}║`);

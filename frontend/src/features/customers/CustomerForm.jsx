@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation } from '@tanstack/react-query'
 import { customersApi } from '@/api'
@@ -6,17 +7,23 @@ import { Spinner } from '@/components/ui'
 const STATES = ['Tamil Nadu','Karnataka','Maharashtra','Delhi','Gujarat','Rajasthan','Andhra Pradesh','Telangana','Kerala','West Bengal','Madhya Pradesh','Uttar Pradesh','Punjab','Haryana','Bihar','Other']
 
 export default function CustomerForm({ initial, onSuccess, onCancel }) {
+  const [apiError, setApiError] = useState(null)
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ defaultValues: initial || {} })
 
   const mutation = useMutation({
     mutationFn: (data) => initial ? customersApi.update(initial.id, data) : customersApi.create(data),
     onSuccess,
-    onError: (e) => alert(e.message),
+    onError: (e) => setApiError(e.message),
   })
 
   return (
-    <form onSubmit={handleSubmit((d) => mutation.mutate(d))}>
+    <form onSubmit={handleSubmit((d) => { setApiError(null); mutation.mutate(d) })}>
       <div className="po-form-standard">
+        {apiError && (
+          <div style={{ background: 'var(--c-red-lt)', color: 'var(--c-red)', padding: '12px 16px', borderRadius: 'var(--radius)', fontSize: '13px', marginBottom: '24px', border: '1px solid #f5c6c6' }}>
+            {apiError}
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, marginBottom: 32 }}>
           {/* Left Column: Primary & Contact */}
           <div className="form-section-compact">

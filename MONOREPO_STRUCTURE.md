@@ -1,11 +1,11 @@
-# BillFlow Pro — Monorepo Structure
+# Ozofi Books Pro — Monorepo Structure
 
 This is a **monorepo with independent build steps** for the backend and frontend.
 
 ## Directory Layout
 
 ```
-billflow-improved/
+ozofibooks-improved/
 ├── backend/                    ← Express.js API server
 │   ├── server.js               ← Main server entry point
 │   ├── routes/                 ← API route handlers

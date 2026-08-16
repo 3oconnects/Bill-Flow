@@ -20,6 +20,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [customerToDelete, setCustomerToDelete] = useState(null)
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ['customers'],
@@ -90,8 +91,14 @@ export default function CustomersPage() {
   }, [customers])
 
   const handleDelete = (c) => {
-    if (window.confirm(`Delete customer "${c.name}"? This cannot be undone.`)) {
-      deleteMut.mutate(c.id)
+    setCustomerToDelete(c)
+  }
+
+  const confirmDelete = () => {
+    if (customerToDelete) {
+      deleteMut.mutate(customerToDelete.id, {
+        onSuccess: () => setCustomerToDelete(null)
+      })
     }
   }
 
@@ -221,12 +228,29 @@ export default function CustomersPage() {
 
       {/* Form Modal */}
       {formOpen && (
-        <Modal title={editing ? 'Edit Customer' : 'New Customer'} onClose={() => setFormOpen(false)} size="lg">
-          <CustomerForm
-            initial={editing}
-            onSuccess={() => { setFormOpen(false); qc.invalidateQueries(['customers']); toast.success(editing ? 'Customer updated' : 'Customer created') }}
-            onCancel={() => setFormOpen(false)}
-          />
+        <Modal title={editing ? 'Edit Customer' : 'New Customer'} onClose={() => { setFormOpen(false); setEditing(null) }} size="lg">
+          <CustomerForm initial={editing} onSuccess={() => { setFormOpen(false); setEditing(null); qc.invalidateQueries(['customers']); toast.success(editing ? 'Customer updated' : 'Customer created') }} onCancel={() => { setFormOpen(false); setEditing(null) }} />
+        </Modal>
+      )}
+
+      {customerToDelete && (
+        <Modal 
+          title="Delete Customer" 
+          size="sm"
+          onClose={() => setCustomerToDelete(null)}
+          footer={
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', width: '100%' }}>
+              <button className="btn btn-ghost" onClick={() => setCustomerToDelete(null)}>Cancel</button>
+              <button className="btn" style={{ background: 'var(--c-red)', color: 'white' }} onClick={confirmDelete} disabled={deleteMut.isPending}>
+                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          }
+        >
+          <div style={{ padding: '20px 0' }}>
+            <p style={{ margin: 0 }}>Are you sure you want to delete customer <strong>{customerToDelete.name}</strong>?</p>
+            <p style={{ margin: '8px 0 0', color: 'var(--c-text3)', fontSize: '13px' }}>This action cannot be undone.</p>
+          </div>
         </Modal>
       )}
     </div>

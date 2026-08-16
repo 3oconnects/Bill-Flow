@@ -1,4 +1,4 @@
-# BillFlow Pro
+# Ozofi Books Pro
 
 > A Zoho Books-inspired, full-stack billing platform built for Indian SMBs — featuring GST-compliant invoicing, accounts payable, inventory, expense tracking, and real-time financial reporting.
 
@@ -32,7 +32,7 @@
 
 ## Overview
 
-BillFlow Pro is a multi-tenant billing platform targeting small and medium businesses in India. It handles the complete billing lifecycle — from raising a quotation to reconciling payments — with built-in GST support, role-based access control, and a modern React frontend.
+Ozofi Books Pro is a multi-tenant billing platform targeting small and medium businesses in India. It handles the complete billing lifecycle — from raising a quotation to reconciling payments — with built-in GST support, role-based access control, and a modern React frontend.
 
 Key differentiators:
 - **India-first**: GST rates (0/5/12/18/28%), GSTIN/PAN capture, state-based tax handling
@@ -207,7 +207,7 @@ Versioned migration files live in `backend/db/migrations/` for incremental schem
 ## Project Structure
 
 ```
-billflow-improved/
+ozofibooks-improved/
 ├── backend/
 │   ├── server.js                 # Express app entry, middleware & route mounting
 │   ├── server-PRODUCTION.js      # Hardened production server config
@@ -300,8 +300,8 @@ billflow-improved/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-org/billflow-pro.git
-cd billflow-pro
+git clone https://github.com/your-org/ozofibooks-pro.git
+cd ozofibooks-pro
 ```
 
 ### 2. Install dependencies
@@ -435,7 +435,7 @@ npm run dev:frontend
 pg_isready -h localhost -p 5432
 
 # Verify your .env values match the running Postgres instance
-psql -U billflow -d billflow_pro -h localhost
+psql -U ozofibooks -d ozofibooks_pro -h localhost
 ```
 
 ### Redis connection error (recurring billing fails to start)
@@ -463,7 +463,7 @@ npm run dev:frontend -- --force
 The migrate script is idempotent (`CREATE TABLE IF NOT EXISTS`). If you see other errors, check that your DB user has `CREATE` privileges:
 
 ```sql
-GRANT ALL PRIVILEGES ON DATABASE billflow_pro TO billflow;
+GRANT ALL PRIVILEGES ON DATABASE ozofibooks_pro TO ozofibooks;
 ```
 
 ---
@@ -482,4 +482,4 @@ Please ensure any new API routes include Zod validation and a matching test in `
 
 ## License
 
-MIT © BillFlow Pro Contributors
+MIT © Ozofi Books Pro Contributors

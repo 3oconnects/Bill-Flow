@@ -34,6 +34,21 @@ router.get('/sku/generate', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/:id/analysis', requireAuth, async (req, res) => {
+  try {
+    const metrics = await stmts.getProductAnalysisMetrics.get(req.params.id, req.orgId);
+    const recentSales = await stmts.getProductAnalysisSales.all(req.params.id, req.orgId);
+    
+    sendSuccess(res, {
+      metrics: metrics || { total_sold: 0, total_revenue: 0 },
+      recentSales: recentSales || []
+    });
+  } catch (err) {
+    console.error('Get product analysis error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const prod = await stmts.getProduct.get(req.params.id, req.orgId);

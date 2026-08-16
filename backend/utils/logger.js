@@ -14,7 +14,7 @@ function makeWinstonLogger() {
         ? winston.format.json()
         : winston.format.colorize({ all: true })
     ),
-    defaultMeta: { service: 'billflow-api' },
+    defaultMeta: { service: 'ozofibooks-api' },
     transports: [new winston.transports.Console()],
   });
 }

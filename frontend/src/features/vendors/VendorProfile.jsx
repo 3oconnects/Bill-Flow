@@ -9,6 +9,7 @@ import { PageLoading, Badge, Spinner } from '@/components/ui'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/Modal'
 import VendorForm from './VendorForm'
+import { confirmAction } from '@/store/confirmStore'
 
 function DocUploadModal({ vendorId, onSuccess, onCancel }) {
   const [name, setName] = useState('')
@@ -298,7 +299,7 @@ export default function VendorProfile() {
                             <div style={{ fontWeight: 600, fontSize: 13 }}>{doc.name}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, textTransform: 'uppercase' }}>{doc.doc_type}</div>
                           </div>
-                          <button style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer' }} onClick={() => window.confirm('Delete document?') && deleteDocMut.mutate(doc.id)}>
+                          <button style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer' }} onClick={() => confirmAction('Delete document?', () => deleteDocMut.mutate(doc.id))}>
                             <Trash2 size={14} />
                           </button>
                         </div>

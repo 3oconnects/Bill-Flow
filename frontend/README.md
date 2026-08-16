@@ -1,4 +1,4 @@
-# BillFlow Pro — React Frontend Setup
+# Ozofi Books Pro — React Frontend Setup
 
 ## Quick Start
 

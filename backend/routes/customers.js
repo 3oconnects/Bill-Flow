@@ -72,6 +72,17 @@ router.get('/:id/detail', requireAuth, async (req, res) => {
 router.post('/', requireAuth, validate(customerSchemas.create), async (req, res) => {
   try {
     const { name, email, phone, address, city, state, country, pincode, gstin, pan, currency, credit_limit, notes } = req.body;
+    
+    // Validate duplicates
+    if (email) {
+      const existingEmail = await db.query('SELECT id FROM customers WHERE org_id = $1 AND email = $2 AND deleted_at IS NULL LIMIT 1', [req.orgId, email]);
+      if (existingEmail.rows.length > 0) return sendError(res, 'A customer with this email already exists', 'VALIDATION_ERROR', 400);
+    }
+    if (phone) {
+      const existingPhone = await db.query('SELECT id FROM customers WHERE org_id = $1 AND phone = $2 AND deleted_at IS NULL LIMIT 1', [req.orgId, phone]);
+      if (existingPhone.rows.length > 0) return sendError(res, 'A customer with this phone number already exists', 'VALIDATION_ERROR', 400);
+    }
+
     const id = uuid();
     await stmts.insertCustomer.run(id, req.orgId, name, email||'', phone||'', address||'', city||'', state||'', country||'India', pincode||'', gstin||'', pan||'', currency||'INR', credit_limit||0, notes||'', req.user.id);
     sendSuccess(res, { id });
@@ -84,6 +95,17 @@ router.post('/', requireAuth, validate(customerSchemas.create), async (req, res)
 router.put('/:id', requireAuth, validate(customerSchemas.create), async (req, res) => {
   try {
     const { name, email, phone, address, city, state, country, pincode, gstin, pan, currency, credit_limit, notes } = req.body;
+
+    // Validate duplicates (excluding self)
+    if (email) {
+      const existingEmail = await db.query('SELECT id FROM customers WHERE org_id = $1 AND email = $2 AND id != $3 AND deleted_at IS NULL LIMIT 1', [req.orgId, email, req.params.id]);
+      if (existingEmail.rows.length > 0) return sendError(res, 'A customer with this email already exists', 'VALIDATION_ERROR', 400);
+    }
+    if (phone) {
+      const existingPhone = await db.query('SELECT id FROM customers WHERE org_id = $1 AND phone = $2 AND id != $3 AND deleted_at IS NULL LIMIT 1', [req.orgId, phone, req.params.id]);
+      if (existingPhone.rows.length > 0) return sendError(res, 'A customer with this phone number already exists', 'VALIDATION_ERROR', 400);
+    }
+
     await stmts.updateCustomer.run(name, email||'', phone||'', address||'', city||'', state||'', country||'India', pincode||'', gstin||'', pan||'', currency||'INR', credit_limit||0, notes||'', req.params.id, req.orgId);
     sendSuccess(res, null);
   } catch (err) {

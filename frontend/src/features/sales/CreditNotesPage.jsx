@@ -14,6 +14,7 @@ import { STATUS_META, REASON_META, WORKFLOW_STAGES } from './CreditNotesShared'
 import CreditNoteForm from './CreditNoteForm'
 import CreditNoteTable from './CreditNoteTable'
 import CreditNoteDetailModal from './CreditNoteDetailModal'
+import { confirmAction } from '@/store/confirmStore'
 
 export default function CreditNotesPage() {
   const { setContext, setActions, clear } = useTopbarStore()
@@ -261,7 +262,7 @@ export default function CreditNotesPage() {
               <div className="card-title">Recent Credit Notes</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setView('list')}>View All →</button>
             </div>
-            <CreditNoteTable notes={notes.slice(0, 8)} onView={setViewId} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)} />
+            <CreditNoteTable notes={notes.slice(0, 8)} onView={setViewId} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => confirmAction('Delete?', () => deleteMut.mutate(id))} />
           </div>
         </div>
       ) : (
@@ -283,7 +284,7 @@ export default function CreditNotesPage() {
             <div className="spacer" />
             <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>{filtered.length} notes</span>
           </div>
-          <CreditNoteTable notes={filtered} onView={setViewId} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)} />
+          <CreditNoteTable notes={filtered} onView={setViewId} onApprove={id => approveMut.mutate(id)} onApply={id => applyMut.mutate(id)} onReject={id => rejectMut.mutate(id)} onDelete={id => confirmAction('Delete?', () => deleteMut.mutate(id))} />
         </div>
       )}
 

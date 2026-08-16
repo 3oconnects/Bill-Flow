@@ -7,6 +7,7 @@ import { PageLoading, EmptyState, Badge, Spinner } from '@/components/ui'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/Modal'
 import { useForm } from 'react-hook-form'
+import { confirmAction } from '@/store/confirmStore'
 
 const PERMISSION_GROUPS = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -211,7 +212,7 @@ export default function RolesPage() {
               role={role}
               isSystem={SYSTEM_ROLES.some((s) => s.id === role.id)}
               onEdit={(r) => { setEditing(r); setFormOpen(true) }}
-              onDelete={(id) => window.confirm('Delete this role?') && deleteMut.mutate(id)}
+              onDelete={(id) => confirmAction('Delete this role?', () => deleteMut.mutate(id))}
             />
           ))}
         </div>

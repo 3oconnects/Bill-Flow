@@ -1,8 +1,8 @@
-# BillFlow Pro — Product Analysis
+# Ozofi Books Pro — Product Analysis
 
 ## Executive Summary
 
-**BillFlow Pro** is a Zoho Books-inspired full-stack billing platform targeting small-to-medium businesses in India. It supports invoicing, expense tracking, multi-user access, role-based controls, and financial reporting. Currently transitioning from a vanilla JavaScript frontend to a modern React/Vite stack.
+**Ozofi Books Pro** is a Zoho Books-inspired full-stack billing platform targeting small-to-medium businesses in India. It supports invoicing, expense tracking, multi-user access, role-based controls, and financial reporting. Currently transitioning from a vanilla JavaScript frontend to a modern React/Vite stack.
 
 ---
 
@@ -328,7 +328,7 @@ frontend/src/
 
 ## Conclusion
 
-BillFlow Pro is a **well-engineered, feature-rich billing platform** with strong fundamentals. The transition to React/Vite shows maturity. However, it needs **test coverage, monitoring, and email/API features** to compete at scale. The **AP module and GST handling** are standout differentiators for the Indian market.
+Ozofi Books Pro is a **well-engineered, feature-rich billing platform** with strong fundamentals. The transition to React/Vite shows maturity. However, it needs **test coverage, monitoring, and email/API features** to compete at scale. The **AP module and GST handling** are standout differentiators for the Indian market.
 
 **Next priority**: Stabilize with tests & monitoring, then layer in high-impact revenue features (email, recurring, bank sync).
 

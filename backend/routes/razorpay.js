@@ -123,7 +123,7 @@ router.post('/verify', requireAuth, async (req, res) => {
   }
 });
 
-// ── Webhook (Razorpay server → BillFlow) ─────────────────────────────────────
+// ── Webhook (Razorpay server → Ozofi Books) ─────────────────────────────────────
 // Must be registered BEFORE express.json() is applied — needs raw body
 router.post(
   '/webhook',

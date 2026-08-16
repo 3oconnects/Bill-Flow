@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuid } = require('uuid');
-const { stmts } = require('../db');
+const { stmts, db } = require('../db');
 const { requireAuth, requireAdmin, requireOwner, hashPassword } = require('../auth');
 const { sendSuccess, sendError } = require('../utils/response');
 
@@ -48,55 +48,124 @@ router.delete('/team/:id', requireAuth, requireOwner, async (req, res) => {
   sendSuccess(res, null);
 });
 
-// Roles & Permissions (Mock logic from server.js)
-const orgRolesCache = {};
-function getOrgRoles(orgId) {
-  if (!orgRolesCache[orgId]) {
-    orgRolesCache[orgId] = [
-      { id:'role_owner', name:'Owner', description:'Full system access', isSystem:true, color:'#7c3aed',
-        permissions:{ dashboard:['view'], products:['view','add','edit','delete'], invoices:['view','create','edit','delete'], vendors:['view','add','edit','delete'], customers:['view','add','edit','delete'], expenses:['view','add','edit','delete'], reports:['view','export'], settings:['view','manage_roles','system_config'] }, createdAt:new Date().toISOString().slice(0,10) },
-      { id:'role_admin', name:'Admin', description:'Full access except system config', isSystem:true, color:'#2563eb',
-        permissions:{ dashboard:['view'], products:['view','add','edit','delete'], invoices:['view','create','edit','delete'], vendors:['view','add','edit','delete'], customers:['view','add','edit','delete'], expenses:['view','add','edit','delete'], reports:['view','export'], settings:['view','manage_roles'] }, createdAt:new Date().toISOString().slice(0,10) },
-      { id:'role_staff', name:'Staff', description:'View and create only', isSystem:true, color:'#059669',
-        permissions:{ dashboard:['view'], products:['view','add'], invoices:['view','create'], vendors:['view'], customers:['view','add'], expenses:['view','add'], reports:['view'], settings:[] }, createdAt:new Date().toISOString().slice(0,10) },
-    ];
+// ── Roles & Permissions (Database-backed) ────────────────────────────────────
+
+// Default system roles — seeded if org has none in the DB
+const SYSTEM_ROLES = [
+  { name: 'Owner', description: 'Full system access', is_system: true, color: '#7c3aed',
+    permissions: { dashboard:['view'], products:['view','add','edit','delete'], invoices:['view','create','edit','delete'], vendors:['view','add','edit','delete'], customers:['view','add','edit','delete'], expenses:['view','add','edit','delete'], reports:['view','export'], settings:['view','manage_roles','system_config'] } },
+  { name: 'Admin', description: 'Full access except system config', is_system: true, color: '#2563eb',
+    permissions: { dashboard:['view'], products:['view','add','edit','delete'], invoices:['view','create','edit','delete'], vendors:['view','add','edit','delete'], customers:['view','add','edit','delete'], expenses:['view','add','edit','delete'], reports:['view','export'], settings:['view','manage_roles'] } },
+  { name: 'Staff', description: 'View and create only', is_system: true, color: '#059669',
+    permissions: { dashboard:['view'], products:['view','add'], invoices:['view','create'], vendors:['view'], customers:['view','add'], expenses:['view','add'], reports:['view'], settings:[] } },
+];
+
+async function ensureSystemRoles(orgId) {
+  const { rows } = await db.query(
+    `SELECT COUNT(*)::int AS c FROM org_roles WHERE org_id = $1 AND deleted_at IS NULL`, [orgId]
+  );
+  if (rows[0].c > 0) return; // Already seeded
+
+  for (const role of SYSTEM_ROLES) {
+    await db.query(
+      `INSERT INTO org_roles (id, org_id, name, description, is_system, color, permissions, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (org_id, name) DO NOTHING`,
+      [uuid(), orgId, role.name, role.description, role.is_system, role.color, JSON.stringify(role.permissions)]
+    );
   }
-  return orgRolesCache[orgId];
 }
 
-router.get('/roles', requireAuth, (req, res) => {
-  sendSuccess(res, getOrgRoles(req.orgId));
+router.get('/roles', requireAuth, async (req, res) => {
+  try {
+    await ensureSystemRoles(req.orgId);
+    const { rows } = await db.query(
+      `SELECT id, org_id, name, description, is_system AS "isSystem", color, permissions,
+              created_at AS "createdAt"
+         FROM org_roles
+        WHERE org_id = $1 AND deleted_at IS NULL
+        ORDER BY is_system DESC, name`,
+      [req.orgId]
+    );
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Get roles error:', err);
+    sendError(res, 'Failed to load roles', 'INTERNAL_ERROR', 500);
+  }
 });
 
-router.post('/roles', requireAuth, requireAdmin, (req, res) => {
-  const { name, description, permissions, color } = req.body;
-  if (!name) return sendError(res, 'Role name is required', 'VALIDATION_ERROR', 400);
-  const roles = getOrgRoles(req.orgId);
-  if (roles.find(r => r.name.toLowerCase() === name.toLowerCase()))
-    return sendError(res, 'A role with this name already exists', 'CONFLICT', 409);
-  const newRole = { id:'role_'+uuid(), name, description:description||'', isSystem:false, color:color||'#2563eb', permissions:permissions||{}, createdAt:new Date().toISOString().slice(0,10) };
-  roles.push(newRole);
-  sendSuccess(res, newRole);
+router.post('/roles', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { name, description, permissions, color } = req.body;
+    if (!name) return sendError(res, 'Role name is required', 'VALIDATION_ERROR', 400);
+
+    // Check for duplicates
+    const { rows: existing } = await db.query(
+      `SELECT id FROM org_roles WHERE org_id = $1 AND LOWER(name) = LOWER($2) AND deleted_at IS NULL`,
+      [req.orgId, name]
+    );
+    if (existing.length > 0) {
+      return sendError(res, 'A role with this name already exists', 'CONFLICT', 409);
+    }
+
+    const id = 'role_' + uuid();
+    await db.query(
+      `INSERT INTO org_roles (id, org_id, name, description, is_system, color, permissions, created_at)
+       VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW())`,
+      [id, req.orgId, name, description || '', color || '#2563eb', JSON.stringify(permissions || {})]
+    );
+    const { rows } = await db.query(`SELECT * FROM org_roles WHERE id = $1`, [id]);
+    sendSuccess(res, rows[0]);
+  } catch (err) {
+    console.error('Create role error:', err);
+    sendError(res, 'Failed to create role', 'INTERNAL_ERROR', 500);
+  }
 });
 
-router.put('/roles/:id', requireAuth, requireAdmin, (req, res) => {
-  const roles = getOrgRoles(req.orgId);
-  const idx = roles.findIndex(r => r.id === req.params.id);
-  if (idx < 0) return sendError(res, 'Role not found', 'NOT_FOUND', 404);
-  const role = roles[idx];
-  const { name, description, permissions, color } = req.body;
-  roles[idx] = { ...role, name:role.isSystem?role.name:(name||role.name), description:description??role.description, permissions:permissions||role.permissions, color:color||role.color };
-  sendSuccess(res, roles[idx]);
+router.put('/roles/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT * FROM org_roles WHERE id = $1 AND org_id = $2 AND deleted_at IS NULL`, [req.params.id, req.orgId]
+    );
+    if (!rows.length) return sendError(res, 'Role not found', 'NOT_FOUND', 404);
+    const role = rows[0];
+
+    const { name, description, permissions, color } = req.body;
+    await db.query(
+      `UPDATE org_roles SET
+         name = $1, description = $2, permissions = $3, color = $4, updated_at = NOW()
+       WHERE id = $5 AND org_id = $6`,
+      [
+        role.is_system ? role.name : (name || role.name),
+        description ?? role.description,
+        JSON.stringify(permissions || role.permissions),
+        color || role.color,
+        req.params.id, req.orgId
+      ]
+    );
+    const { rows: updated } = await db.query(`SELECT * FROM org_roles WHERE id = $1`, [req.params.id]);
+    sendSuccess(res, updated[0]);
+  } catch (err) {
+    console.error('Update role error:', err);
+    sendError(res, 'Failed to update role', 'INTERNAL_ERROR', 500);
+  }
 });
 
-router.delete('/roles/:id', requireAuth, requireAdmin, (req, res) => {
-  const roles = getOrgRoles(req.orgId);
-  const role = roles.find(r => r.id === req.params.id);
-  if (!role) return sendError(res, 'Role not found', 'NOT_FOUND', 404);
-  if (role.isSystem) return sendError(res, 'System roles cannot be deleted', 'FORBIDDEN', 403);
-  const idx = roles.findIndex(r => r.id === req.params.id);
-  roles.splice(idx, 1);
-  sendSuccess(res, null);
+router.delete('/roles/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT * FROM org_roles WHERE id = $1 AND org_id = $2 AND deleted_at IS NULL`, [req.params.id, req.orgId]
+    );
+    if (!rows.length) return sendError(res, 'Role not found', 'NOT_FOUND', 404);
+    if (rows[0].is_system) return sendError(res, 'System roles cannot be deleted', 'FORBIDDEN', 403);
+
+    await db.query(`UPDATE org_roles SET deleted_at = NOW() WHERE id = $1 AND org_id = $2`, [req.params.id, req.orgId]);
+    sendSuccess(res, null);
+  } catch (err) {
+    console.error('Delete role error:', err);
+    sendError(res, 'Failed to delete role', 'INTERNAL_ERROR', 500);
+  }
 });
 
 module.exports = router;
+

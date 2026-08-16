@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, CheckCircle2, Star, Zap, Settings, Download, Trash2, RefreshCw } from 'lucide-react'
+import { confirmAction } from '@/store/confirmStore'
 
 export function StarRating({ rating }) {
   return (
@@ -22,9 +23,9 @@ export function IntegrationDrawer({ item, installed, onInstall, onUninstall, onC
   }
 
   const handleUninstall = () => {
-    if (window.confirm(`Uninstall ${item.name}? This will disconnect the integration.`)) {
+    confirmAction(`Uninstall ${item.name}? This will disconnect the integration.`, () => {
       onUninstall(item.id)
-    }
+    })
   }
 
   return (
@@ -131,7 +132,7 @@ export function IntegrationDrawer({ item, installed, onInstall, onUninstall, onC
                     <CheckCircle2 size={18} color="var(--c-green)" />
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#065f46' }}>{item.name} is installed</div>
-                      <div style={{ fontSize: 11, color: '#047857' }}>Active and syncing with BillFlow</div>
+                      <div style={{ fontSize: 11, color: '#047857' }}>Active and syncing with Ozofi Books</div>
                     </div>
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Configuration</div>
@@ -142,7 +143,7 @@ export function IntegrationDrawer({ item, installed, onInstall, onUninstall, onC
                     </div>
                     <div className="form-group">
                       <label className="form-label">Webhook URL</label>
-                      <input className="form-input sm" readOnly value={`https://billflow.app/webhooks/${item.name.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontFamily: 'monospace', fontSize: 11 }} />
+                      <input className="form-input sm" readOnly value={`https://ozofibooks.app/webhooks/${item.name.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontFamily: 'monospace', fontSize: 11 }} />
                     </div>
                     <div className="form-group">
                       <label className="form-label">Sync Frequency</label>

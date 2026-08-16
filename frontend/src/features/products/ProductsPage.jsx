@@ -11,6 +11,7 @@ import Modal from '@/components/Modal'
 import ProductForm from './ProductForm'
 import BulkUpload from './BulkUpload'
 import CategoryManager from './CategoryManager'
+import { confirmAction } from '@/store/confirmStore'
 
 export default function ProductsPage() {
   const qc = useQueryClient()
@@ -266,7 +267,7 @@ export default function ProductsPage() {
                               <ShoppingCart size={14} />
                             </button>
                           )}
-                          <button className="topbar-icon-btn" title="Delete" onClick={() => window.confirm(`Delete "${p.name}"?`) && deleteMut.mutate(p.id)} style={{ color: 'var(--red)' }}>
+                          <button className="topbar-icon-btn" title="Delete" onClick={() => confirmAction(`Delete "${p.name}"?`, () => deleteMut.mutate(p.id))} style={{ color: 'var(--red)' }}>
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -304,7 +305,7 @@ export default function ProductsPage() {
                   <div style={{ display: 'flex', gap: 6, borderTop: '1px solid var(--c-border)', paddingTop: 10 }}>
                     <button className="topbar-icon-btn" title="Edit" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setEditing(p); setFormOpen(true) }}><Edit2 size={13} /></button>
                     <button className="topbar-icon-btn" title="Clone" style={{ flex: 1, justifyContent: 'center' }} onClick={() => cloneMut.mutate(p.id)}><Copy size={13} /></button>
-                    <button className="topbar-icon-btn" title="Delete" style={{ flex: 1, justifyContent: 'center', color: 'var(--c-danger)' }} onClick={() => window.confirm(`Delete "${p.name}"?`) && deleteMut.mutate(p.id)}><Trash2 size={13} /></button>
+                    <button className="topbar-icon-btn" title="Delete" style={{ flex: 1, justifyContent: 'center', color: 'var(--c-danger)' }} onClick={() => confirmAction(`Delete "${p.name}"?`, () => deleteMut.mutate(p.id))}><Trash2 size={13} /></button>
                   </div>
                 </div>
               )

@@ -1,0 +1,91 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-and-build:
+    name: Test and Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ozofibooks
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: ozofibooks_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Install Frontend Dependencies
+        run: npm install --prefix frontend
+
+      - name: Run Backend Tests
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: ozofibooks_test
+          DB_USER: ozofibooks
+          DB_PASSWORD: testpassword
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_jwt_secret
+          COOKIE_SECRET: test_cookie_secret
+        run: npm run test:backend
+
+      - name: Verify Frontend Build
+        run: npm run build:frontend
+
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Trigger Render Deployment
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK secret is not set. Skipping deployment."
+            echo "Please set this secret in your GitHub repository settings to enable automatic deployment."
+            # We don't exit 1 here so the workflow still shows as successful, 
+            # it just skips deployment if the user hasn't set it up yet.
+          else
+            echo "Triggering Render deployment..."
+            curl -X POST "$RENDER_DEPLOY_HOOK"
+            echo "Deployment triggered."
+          fi

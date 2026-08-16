@@ -16,6 +16,7 @@ import PriceListsTab from './detail/PriceListsTab'
 import StockHistoryTab from './detail/StockHistoryTab'
 import SalesHistoryTab from './detail/SalesHistoryTab'
 import ProductKnowledgeCard from './detail/ProductKnowledgeCard'
+import { confirmAction } from '@/store/confirmStore'
 
 export default function ProductDetail() {
   const { id } = useParams()
@@ -74,7 +75,7 @@ export default function ProductDetail() {
         </div>
         <div style={{ display: 'flex', gap: 7 }}>
           <button className="btn btn-ghost btn-sm" onClick={printLabel}><Printer size={13} /> Print Label</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => window.confirm('Clone this product?') && cloneMut.mutate()}><Copy size={13} /> Clone</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => confirmAction('Clone this product?', () => cloneMut.mutate())}><Copy size={13} /> Clone</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setStockOpen(true)}><Package size={13} /> Adjust Stock</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setAnalysisOpen(true)} style={{ background: 'linear-gradient(135deg,#6366f1,#7c3aed)', color: '#fff', border: 'none' }}><BarChart2 size={13} /> Business Report</button>
           <button className="btn btn-primary btn-sm" onClick={() => setEditOpen(true)}><Edit2 size={13} /> Edit</button>
@@ -186,7 +187,7 @@ export default function ProductDetail() {
                           <td style={S.td}><span style={{ color: Number(vm) > 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>{vm}%</span></td>
                           <td style={S.td}>{pv.is_primary ? <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: '#ecfdf5', color: '#10b981' }}>Primary</span> : <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: 'var(--bg-2)', color: 'var(--text-3)' }}>Secondary</span>}</td>
                           <td style={{ ...S.td, textAlign: 'right' }}>
-                            <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', fontSize: 11 }} onClick={() => window.confirm('Unlink vendor?') && removeVendorMut.mutate(pv.id)}>Unlink</button>
+                            <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444', fontSize: 11 }} onClick={() => confirmAction('Unlink vendor?', () => removeVendorMut.mutate(pv.id))}>Unlink</button>
                           </td>
                         </tr>
                       )

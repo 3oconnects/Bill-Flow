@@ -5,6 +5,7 @@ import { Plus, Search, Eye, Edit2, Trash2, FileText, Clock, AlertCircle } from '
 import { invoicesApi } from '@/api'
 import { fmt } from '@/lib/utils'
 import { PageLoading, Badge } from '@/components/ui'
+import { toast } from '@/store/toastStore'
 import { useTopbarStore } from '@/store/topbarStore'
 import { useEffect } from 'react'
 import InvoicePreview from './InvoicePreview'
@@ -12,6 +13,7 @@ import InvoiceForm from './InvoiceForm'
 import InvoiceScanner from './InvoiceScanner'
 import Modal from '@/components/Modal'
 import { Scan } from 'lucide-react'
+import { confirmAction } from '@/store/confirmStore'
 
 const STATUS_TABS = ['all','draft','sent','paid','overdue','cancelled']
 
@@ -180,7 +182,7 @@ export default function InvoicesPage() {
                             Send
                           </button>
                         )}
-                        <button className="topbar-icon-btn" title="Delete" onClick={() => window.confirm('Delete this invoice?') && deleteMut.mutate(inv.id)} style={{ color: 'var(--red)' }}>
+                        <button className="topbar-icon-btn" title="Delete" onClick={() => confirmAction('Delete this invoice?', () => deleteMut.mutate(inv.id))} style={{ color: 'var(--red)' }}>
                           <Trash2 size={14} />
                         </button>
                       </div>

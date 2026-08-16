@@ -106,7 +106,7 @@ export default function BudgetPage() {
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [budgets, setBudgets] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('billflow_budgets') || '{}') } catch { return {} }
+    try { return JSON.parse(localStorage.getItem('ozofibooks_budgets') || '{}') } catch { return {} }
   })
   const [editingCat, setEditingCat] = useState(null)
 
@@ -122,7 +122,7 @@ export default function BudgetPage() {
     const key = `${selectedMonth}_${category}`
     const updated = { ...budgets, [key]: amount }
     setBudgets(updated)
-    localStorage.setItem('billflow_budgets', JSON.stringify(updated))
+    localStorage.setItem('ozofibooks_budgets', JSON.stringify(updated))
     setEditingCat(null)
   }
 

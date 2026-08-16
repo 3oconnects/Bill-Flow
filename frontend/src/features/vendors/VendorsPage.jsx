@@ -11,6 +11,7 @@ import { PageLoading, EmptyState, Badge } from '@/components/ui'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/Modal'
 import VendorForm from './VendorForm'
+import { confirmAction } from '@/store/confirmStore'
 
 export default function VendorsPage() {
   const qc = useQueryClient()
@@ -199,7 +200,7 @@ export default function VendorsPage() {
                       <div className="tbl-actions" style={{ justifyContent: 'flex-end' }}>
                         <button className="topbar-icon-btn" title="View Profile" onClick={() => navigate(`/vendors/${v.id}`)}><Eye size={14} /></button>
                         <button className="topbar-icon-btn" title="Edit Vendor" onClick={() => { setEditing(v); setFormOpen(true) }}><Edit2 size={14} /></button>
-                        <button className="topbar-icon-btn" style={{ color: 'var(--c-red)' }} onClick={() => window.confirm(`Delete "${v.name}"?`) && deleteMut.mutate(v.id)}><Trash2 size={14} /></button>
+                        <button className="topbar-icon-btn" style={{ color: 'var(--c-red)' }} onClick={() => confirmAction(`Delete "${v.name}"?`, () => deleteMut.mutate(v.id))}><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

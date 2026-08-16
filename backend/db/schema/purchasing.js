@@ -90,10 +90,96 @@ module.exports = async function schemaPurchasingInit() {
       created_by TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // --- Purchase Quotations & Orders ---
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS blanket_agreements (
+      id TEXT PRIMARY KEY, org_id TEXT NOT NULL, agreement_number TEXT NOT NULL,
+      vendor_id TEXT, vendor_name TEXT NOT NULL,
+      status TEXT DEFAULT 'active'
+        CHECK (status IN ('active','expired','cancelled')),
+      start_date DATE, end_date DATE,
+      total_value NUMERIC(12,2) DEFAULT 0,
+      terms TEXT, items JSONB DEFAULT '[]',
+      created_by TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      deleted_at TIMESTAMP, UNIQUE (org_id, agreement_number)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS purchase_requests (
+      id TEXT PRIMARY KEY, org_id TEXT NOT NULL, request_number TEXT NOT NULL,
+      department TEXT, requested_by_name TEXT,
+      status TEXT DEFAULT 'draft'
+        CHECK (status IN ('draft','pending_approval','approved','rejected','converted')),
+      required_date DATE,
+      items JSONB DEFAULT '[]', notes TEXT,
+      converted_to_po TEXT,
+      created_by TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      deleted_at TIMESTAMP, UNIQUE (org_id, request_number)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS purchase_quotations (
+      id TEXT PRIMARY KEY, org_id TEXT NOT NULL, number TEXT NOT NULL,
+      vendor_id TEXT, vendor_name TEXT NOT NULL,
+      vendor_email TEXT, vendor_phone TEXT,
+      status TEXT DEFAULT 'draft'
+        CHECK (status IN ('draft','sent','received','awarded','rejected','converted')),
+      subtotal NUMERIC(12,2) DEFAULT 0, discount_pct NUMERIC(5,2) DEFAULT 0,
+      discount_amount NUMERIC(12,2) DEFAULT 0, tax NUMERIC(12,2) DEFAULT 0,
+      total NUMERIC(12,2) DEFAULT 0, currency TEXT DEFAULT 'INR',
+      valid_until DATE, notes TEXT, terms TEXT,
+      converted_to TEXT, items JSONB DEFAULT '[]', created_by TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      deleted_at TIMESTAMP, UNIQUE (org_id, number)
+    )
+  `);
+  
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id TEXT PRIMARY KEY, org_id TEXT NOT NULL, po_number TEXT NOT NULL,
+      vendor_id TEXT, vendor_name TEXT NOT NULL,
+      quotation_ref TEXT,
+      status TEXT DEFAULT 'draft'
+        CHECK (status IN ('draft','issued','partially_received','fulfilled','cancelled')),
+      expected_delivery_date DATE,
+      subtotal NUMERIC(12,2) DEFAULT 0, discount_pct NUMERIC(5,2) DEFAULT 0,
+      discount_amount NUMERIC(12,2) DEFAULT 0, tax NUMERIC(12,2) DEFAULT 0,
+      total NUMERIC(12,2) DEFAULT 0, currency TEXT DEFAULT 'INR',
+      notes TEXT, terms TEXT,
+      items JSONB DEFAULT '[]', created_by TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      deleted_at TIMESTAMP, UNIQUE (org_id, po_number)
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS goods_receipt_pos (
+      id TEXT PRIMARY KEY, org_id TEXT NOT NULL, receipt_number TEXT NOT NULL,
+      vendor_id TEXT, vendor_name TEXT NOT NULL, base_po_no TEXT,
+      posting_date DATE, document_date DATE, status TEXT DEFAULT 'open',
+      remarks TEXT, items JSONB DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      deleted_at TIMESTAMP, created_by TEXT, UNIQUE (org_id, receipt_number)
+    )
+  `);
+
   // Indexes
   const idxs = [
     `CREATE INDEX IF NOT EXISTS idx_vendors_org   ON vendors(org_id)`,
     `CREATE INDEX IF NOT EXISTS idx_products_org  ON products(org_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_prreq_org      ON purchase_requests(org_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_grpo_org       ON goods_receipt_pos(org_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_grpo_vend      ON goods_receipt_pos(org_id, vendor_id)`,
     `CREATE INDEX IF NOT EXISTS idx_pv_product    ON product_vendors(org_id, product_id)`,
     `CREATE INDEX IF NOT EXISTS idx_pv_vendor     ON product_vendors(org_id, vendor_id)`,
     `CREATE INDEX IF NOT EXISTS idx_greturns_org  ON goods_returns(org_id)`,

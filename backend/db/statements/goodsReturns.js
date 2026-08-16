@@ -140,6 +140,7 @@ module.exports = {
   updateGoodsReturnStatus,
   updateGoodsReturnCreditNote,
   markGoodsReturnStockAdjusted,
+  insertGoodsReturnLog,
   deleteGoodsReturnItems,
   softDeleteGoodsReturn,
   getNextReturnNo,

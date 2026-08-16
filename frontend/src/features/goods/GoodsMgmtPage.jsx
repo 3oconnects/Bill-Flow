@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTopbarStore } from '@/store/topbarStore'
-import { EmptyState } from '@/components/ui'
-import { Truck, RotateCcw, Plus, Package, ChevronLeft, Search } from 'lucide-react'
+import { EmptyState, Badge, PageLoading, Modal } from '@/components/ui'
+import { Truck, RotateCcw, Plus, Package, ChevronLeft, Search, Eye, Trash2, Pencil } from 'lucide-react'
+import { toast } from '@/store/toastStore'
 import GoodsReceiptModal from './GoodsReceiptModal'
 import GoodsReturnModal from './GoodsReturnModal'
+import { goodsReceiptsApi, goodsReturnsApi } from '@/api'
+import { fmt } from '@/lib/utils'
 
 const GOODS_NAV = [
   { label: 'Goods Receipt PO', icon: Truck, id: 'grpo' },
-  { label: 'Goods Return Request', icon: RotateCcw, id: 'return_req' },
   { label: 'Goods Return', icon: RotateCcw, id: 'returns' },
 ]
 
 const HEADER_CONFIG = {
   grpo: ['RECEIPT NO', 'VENDOR', 'BASE PO NO', 'POSTING DATE', 'WAREHOUSE', 'STATUS'],
-  return_req: ['REQUEST NO', 'VENDOR', 'BASE RECEIPT', 'REASON', 'DATE', 'STATUS'],
   returns: ['RETURN NO', 'VENDOR', 'BASE RECEIPT NO', 'REASON', 'DATE', 'STATUS'],
 }
 
@@ -27,8 +29,48 @@ export default function GoodsMgmtPage() {
   const [collapsed, setCollapsed] = useState(false)
   const [grpoModalOpen, setGrpoModalOpen] = useState(false)
   const [returnModalOpen, setReturnModalOpen] = useState(false)
+  const [viewingItem, setViewingItem] = useState(null)
+  const [viewingReturnItem, setViewingReturnItem] = useState(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+  const qc = useQueryClient()
 
-  const data = []
+  const deleteMut = useMutation({
+    mutationFn: (id) => goodsReturnsApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['goodsReturns'] })
+      toast.success('Goods return deleted')
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Failed to delete return')
+  })
+
+  const { data: goodsReceipts = [], isLoading: isLoadingGR } = useQuery({ 
+    queryKey: ['goodsReceipts'], 
+    queryFn: goodsReceiptsApi.list 
+  })
+
+  const { data: goodsReturns = [], isLoading: isLoadingReturns } = useQuery({
+    queryKey: ['goodsReturns'],
+    queryFn: goodsReturnsApi.list
+  })
+
+  let data = []
+  if (activeTab === 'grpo') {
+    data = goodsReceipts
+  } else if (activeTab === 'returns') {
+    data = goodsReturns
+  }
+  
+  if (filter !== 'all') {
+    data = data.filter(d => d.status === filter)
+  }
+  if (search) {
+    const s = search.toLowerCase()
+    data = data.filter(d => 
+      (d.receipt_number || '').toLowerCase().includes(s) ||
+      (d.vendor_name || '').toLowerCase().includes(s)
+    )
+  }
+
   const headers = HEADER_CONFIG[activeTab] || []
 
   useEffect(() => {
@@ -127,7 +169,56 @@ export default function GoodsMgmtPage() {
                     </td>
                   </tr>
                 ) : (
-                  data.map(item => <tr key={item.id}></tr>)
+                  data.map(item => (
+                    <tr key={item.id}>
+                        {activeTab === 'grpo' && (
+                          <>
+                            <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{item.receipt_number}</td>
+                            <td style={{ fontWeight: 500 }}>{item.vendor_name}</td>
+                            <td style={{ color: 'var(--text-2)' }}>{item.base_po_no || '-'}</td>
+                            <td style={{ color: 'var(--text-2)' }}>{item.posting_date ? fmt.date(item.posting_date) : '-'}</td>
+                            <td style={{ color: 'var(--text-2)' }}>MAIN</td>
+                            <td><Badge status={item.status} /></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                <button className="btn-icon-sm" onClick={() => setViewingItem(item)} title="View Receipt">
+                                  <Eye size={16} />
+                                </button>
+                                {item.status === 'draft' && (
+                                  <button className="btn-icon-sm" onClick={() => {}} title="Edit Receipt">
+                                    <Pencil size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </>
+                        )}
+                        {activeTab === 'returns' && (
+                          <>
+                            <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{item.return_no}</td>
+                            <td style={{ fontWeight: 500 }}>{item.vendor_name}</td>
+                            <td style={{ color: 'var(--text-2)' }}>{item.base_receipt_no || '-'}</td>
+                            <td style={{ color: 'var(--text-2)' }}>{item.remarks || '-'}</td>
+                            <td style={{ color: 'var(--text-2)' }}>{item.return_date ? fmt.date(item.return_date) : '-'}</td>
+                            <td><Badge status={item.status} /></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                <button className="btn-icon-sm" onClick={() => setViewingReturnItem(item)} title="Edit Return">
+                                  <Pencil size={16} />
+                                </button>
+                                <button 
+                                  className="btn-icon-sm" 
+                                  onClick={() => setDeleteConfirmId(item.id)} 
+                                  title="Delete Return"
+                                >
+                                  <Trash2 size={16} color="var(--c-red)" />
+                                </button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -135,16 +226,42 @@ export default function GoodsMgmtPage() {
         </div>
 
         <GoodsReceiptModal 
-          isOpen={grpoModalOpen} 
-          onClose={() => setGrpoModalOpen(false)} 
+          isOpen={grpoModalOpen || viewingItem !== null} 
+          onClose={() => { setGrpoModalOpen(false); setViewingItem(null); }} 
           onSave={() => setGrpoModalOpen(false)} 
+          initialData={viewingItem}
+          readOnly={!!viewingItem}
         />
 
         <GoodsReturnModal 
-          isOpen={returnModalOpen} 
-          onClose={() => setReturnModalOpen(false)} 
-          onSave={() => setReturnModalOpen(false)} 
+          isOpen={returnModalOpen || !!viewingReturnItem} 
+          onClose={() => { setReturnModalOpen(false); setViewingReturnItem(null) }} 
+          onSave={() => { setReturnModalOpen(false); setViewingReturnItem(null) }} 
+          initialData={viewingReturnItem}
         />
+
+        <Modal
+          isOpen={!!deleteConfirmId}
+          onClose={() => setDeleteConfirmId(null)}
+          title="Delete Goods Return"
+          size="sm"
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
+              <button 
+                className="btn btn-danger" 
+                onClick={() => {
+                  deleteMut.mutate(deleteConfirmId)
+                  setDeleteConfirmId(null)
+                }}
+              >
+                Delete
+              </button>
+            </>
+          }
+        >
+          <p style={{ marginTop: 0, color: 'var(--text-2)' }}>Are you sure you want to permanently delete this goods return? This action cannot be undone.</p>
+        </Modal>
       </main>
     </div>
   )

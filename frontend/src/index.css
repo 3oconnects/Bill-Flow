@@ -1,5 +1,5 @@
 /* ============================================================
-   BillFlow Pro — CSS (Zoho Books inspired)
+   Ozofi Books Pro — CSS (Zoho Books inspired)
    Restored and integrated for React
    ============================================================ */
 
@@ -203,7 +203,9 @@ a { text-decoration: none; color: inherit; }
 textarea.form-input { resize: vertical; min-height: 76px; }
 .input-sm, .select-sm { padding: 4px 10px; font-size: 12px; height: 32px; }
 textarea.input-sm { min-height: 54px; }
-.form-grid.compact { gap: 8px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+.form-grid.compact { gap: 8px 12px; }
+.form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-row.compact { gap: 12px; }
 .form-group.m0 { margin-bottom: 0; }
 .form-row { display: grid; gap: 12px; }
@@ -233,6 +235,7 @@ textarea.input-sm { min-height: 54px; }
 .topbar-icon-btn:hover { background: var(--c-bg); border-color: var(--c-border2); color: var(--c-text); transform: translateY(-1px); }
 .topbar-icon-btn.action-glow { background: var(--c-primary-lt); color: var(--c-primary); border-color: transparent; }
 .topbar-icon-btn.action-glow:hover { background: #e0ebff; box-shadow: 0 4px 12px rgba(26,107,232,0.15); }
+.kpi-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
 .kpi-card.blue .kpi-icon { background: var(--c-blue-lt); color: var(--c-primary); }
 .kpi-card.red .kpi-icon { background: var(--c-red-lt); color: var(--c-red); }
 .kpi-card.orange .kpi-icon { background: var(--c-orange-lt); color: var(--c-orange); }
@@ -450,6 +453,7 @@ html.dark {
   #sidebar .logo-text, #sidebar .org-info, #sidebar .nav-item span, #sidebar .nav-arrow { display: none; }
   #sidebar .nav-item { justify-content: center; padding: 10px; }
   .topbar-center { display: none; }
+  .form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 768px) {

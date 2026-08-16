@@ -34,7 +34,7 @@ router.post('/', requireAuth, async (req, res) => {
     if (!name) return sendError(res, 'Name is required', 'VALIDATION_ERROR', 400);
     const id = uuid();
     await stmts.insertVendor.run(
-      id, req.orgId, vendor_id||'', name, company_name||'', contact_person||'',
+      id, req.orgId, vendor_id || null, name, company_name||'', contact_person||'',
       email||'', phone||'', address||'', street||'', city||'', state||'',
       pincode||'', country||'India', gstin||'', bank_account||'', ifsc||'',
       bank_name||'', bank_branch||'', status||'active', notes||'', req.user.id
@@ -42,6 +42,11 @@ router.post('/', requireAuth, async (req, res) => {
     sendSuccess(res, { id });
   } catch (err) {
     console.error('Create vendor error:', err);
+    if (err.code === '23505') { // unique violation
+      if (err.constraint?.includes('email')) return sendError(res, 'A vendor with this email already exists', 'VALIDATION_ERROR', 400);
+      if (err.constraint?.includes('phone')) return sendError(res, 'A vendor with this phone already exists', 'VALIDATION_ERROR', 400);
+      return sendError(res, 'A vendor with this detail already exists', 'VALIDATION_ERROR', 400);
+    }
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });

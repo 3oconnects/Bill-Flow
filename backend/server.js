@@ -8,7 +8,7 @@ const cors         = require('cors');
 
 // Validate critical env vars
 if (process.env.NODE_ENV === 'production') {
-  const bad = ['billflow-pro-secret-key-123', 'dev-insecure-secret-do-not-use-in-production'];
+  const bad = ['ozofibooks-pro-secret-key-123', 'dev-insecure-secret-do-not-use-in-production'];
   if (!process.env.JWT_SECRET || bad.includes(process.env.JWT_SECRET)) {
     console.error('[FATAL] JWT_SECRET is not set or is insecure. Refusing to start.');
     process.exit(1);
@@ -61,7 +61,7 @@ app.use(cors(corsConfig));
 app.use(requestIdMiddleware);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(cookieParser(process.env.COOKIE_SECRET || 'billflow-cookie-secret-dev'));
+app.use(cookieParser(process.env.COOKIE_SECRET || 'ozofibooks-cookie-secret-dev'));
 
 // Input sanitisation
 app.use(sanitizeRequest);
@@ -109,9 +109,12 @@ if (require.main === module) {
 
     // 3. Start listening.
     app.listen(PORT, () => {
-      logger.info('BillFlow API started', { port: PORT, env: process.env.NODE_ENV || 'development' });
+      logger.info('Ozofi Books API started', { port: PORT, env: process.env.NODE_ENV || 'development' });
     });
   })();
 }
 
 module.exports = app;
+
+// touch
+// touch 2

@@ -194,8 +194,6 @@ export default function BankAccountsPage() {
                             }}
                             onClick={() => alert('View account details for: ' + account.bankName)}
                             title="View details"
-                            onMouseOver={(e) => e.target.style.background = 'var(--c-info)'}
-                            onMouseOut={(e) => e.target.style.background = 'var(--c-info-lt)'}
                             onMouseOver={(e) => {
                               e.target.style.background = 'var(--c-info)'
                               e.target.style.color = 'white'

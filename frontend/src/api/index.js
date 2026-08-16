@@ -25,6 +25,9 @@ export const authApi = {
   register:       (data)        => api.post('/auth/register', data),
   logout:         ()             => api.post('/auth/logout'),
   changePassword: (data)        => api.post('/auth/change-password', data),
+  logoutAll:      ()             => api.post('/auth/logout-all'),
+  verifyEmail:    (token)        => api.post('/auth/verify-email', { token }),
+  resendVerify:   ()             => api.post('/auth/resend-verification'),
 }
 
 // ── Organization ──────────────────────────────────
@@ -85,6 +88,7 @@ export const productsApi = {
   create:        (data)          => api.post('/products', data),
   update:        (id, data)      => api.put(`/products/${id}`, data),
   remove:        (id)            => api.delete(`/products/${id}`),
+  analysis:      (id)            => api.get(`/products/${id}/analysis`),
   uploadImage:    (id, data_url)  => api.post(`/products/${id}/image`, { data_url }),
   adjustStock:    (id, data)      => api.patch(`/products/${id}/stock`, data),
   clone:          (id)            => api.post(`/products/${id}/clone`),
@@ -173,6 +177,7 @@ export const goodsReturnsApi = {
   get:        (id)             => api.get(`/goods-returns/${id}`),
   create:     (data)           => api.post('/goods-returns', data),
   update:     (id, data)       => api.put(`/goods-returns/${id}`, data),
+  delete:     (id)             => api.delete(`/goods-returns/${id}`),
   submit:     (id, note)       => api.patch(`/goods-returns/${id}/submit`, { note }),
   approve:    (id, note)       => api.patch(`/goods-returns/${id}/approve`, { note }),
   process:    (id, note)       => api.patch(`/goods-returns/${id}/process`, { note }),
@@ -237,5 +242,54 @@ export const recurringApi = {
   removeTemplate:       (id)        => api.delete(`/recurring/purchase-templates/${id}`),
   templateRuns:         (id)        => api.get(`/recurring/purchase-templates/${id}/runs`),
 }
+// ── Billing / Subscriptions ──────────────────────
+export const billingApi = {
+  getPlans:        ()           => api.get('/billing/plans'),
+  getSubscription: ()           => api.get('/billing/subscription'),
+  changePlan:      (data)       => api.post('/billing/change-plan', data),
+  startTrial:      (data)       => api.post('/billing/start-trial', data),
+  getPortalUrl:    ()           => api.post('/billing/portal'),
+  getUsage:        ()           => api.get('/billing/usage'),
+}
 
 export default api
+export const purchaseQuotationsApi = {
+  list:     ()          => api.get('/purchase-quotations'),
+  get:      (id)        => api.get(`/purchase-quotations/${id}`),
+  create:   (data)      => api.post('/purchase-quotations', data),
+  update:   (id, data)  => api.put(`/purchase-quotations/${id}`, data),
+  remove:   (id)        => api.delete(`/purchase-quotations/${id}`),
+  status:   (id, s)     => api.patch(`/purchase-quotations/${id}/status`, { status: s }),
+}
+
+export const purchaseOrdersApi = {
+  list:     ()          => api.get('/purchase-orders'),
+  get:      (id)        => api.get(`/purchase-orders/${id}`),
+  create:   (data)      => api.post('/purchase-orders', data),
+  update:   (id, data)  => api.put(`/purchase-orders/${id}`, data),
+  remove:   (id)        => api.delete(`/purchase-orders/${id}`),
+  status:   (id, s)     => api.patch(`/purchase-orders/${id}/status`, { status: s }),
+}
+
+export const blanketAgreementsApi = {
+  list:     ()          => api.get('/blanket-agreements'),
+  get:      (id)        => api.get(`/blanket-agreements/${id}`),
+  create:   (data)      => api.post('/blanket-agreements', data),
+  update:   (id, data)  => api.put(`/blanket-agreements/${id}`, data),
+  remove:   (id)        => api.delete(`/blanket-agreements/${id}`),
+  status:   (id, s)     => api.put(`/blanket-agreements/${id}/status`, { status: s }),
+}
+
+export const purchaseRequestsApi = {
+  list:     ()          => api.get('/purchase-requests'),
+  get:      (id)        => api.get(`/purchase-requests/${id}`),
+  create:   (data)      => api.post('/purchase-requests', data),
+  update:   (id, data)  => api.put(`/purchase-requests/${id}`, data),
+  remove:   (id)        => api.delete(`/purchase-requests/${id}`),
+  status:   (id, s)     => api.put(`/purchase-requests/${id}/status`, { status: s }),
+}
+
+export const goodsReceiptsApi = {
+  list:     ()          => api.get('/goods-receipts'),
+  create:   (data)      => api.post('/goods-receipts', data)
+}

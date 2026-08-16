@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTopbarStore } from '@/store/topbarStore'
-import { EmptyState } from '@/components/ui'
+import { EmptyState, PageLoading } from '@/components/ui'
 import { Search, AlertCircle, Package, Layers, TrendingUp, Eye } from 'lucide-react'
 import { fmt } from '@/lib/utils'
+import { productsApi } from '@/api'
+import ProductAnalysisModal from './ProductAnalysisModal'
 
 const WAREHOUSES = [
   { id: 'main', name: 'Main Warehouse' },
@@ -16,24 +19,38 @@ const STOCK_STATUS = {
   outOfStock: { bg: 'var(--c-error-lt)', color: 'var(--c-error)', label: 'Out of Stock' },
 }
 
-// Mock data - replace with API
-const MOCK_STOCK = [
-  { id: 1, sku: 'PROD-001', product: 'Laptop - Dell XPS 13', category: 'Electronics', quantity: 45, reorderLevel: 10, warehouse: 'main', value: 1125000, status: 'inStock' },
-  { id: 2, sku: 'PROD-002', product: 'Mouse - Wireless', category: 'Accessories', quantity: 3, reorderLevel: 20, warehouse: 'main', value: 4500, status: 'lowStock' },
-  { id: 3, sku: 'PROD-003', product: 'Keyboard - Mechanical', category: 'Accessories', quantity: 0, reorderLevel: 15, warehouse: 'main', value: 0, status: 'outOfStock' },
-  { id: 4, sku: 'PROD-004', product: 'Monitor - 27" 4K', category: 'Electronics', quantity: 12, reorderLevel: 5, warehouse: 'branch1', value: 540000, status: 'inStock' },
-  { id: 5, sku: 'PROD-005', product: 'USB Cable - Type C', category: 'Accessories', quantity: 156, reorderLevel: 50, warehouse: 'branch1', value: 78000, status: 'inStock' },
-  { id: 6, sku: 'PROD-006', product: 'HDMI Cable', category: 'Accessories', quantity: 8, reorderLevel: 25, warehouse: 'branch2', value: 4000, status: 'lowStock' },
-  { id: 7, sku: 'PROD-007', product: 'Desk Lamp - LED', category: 'Office', quantity: 23, reorderLevel: 5, warehouse: 'branch2', value: 57500, status: 'inStock' },
-  { id: 8, sku: 'PROD-008', product: 'Office Chair', category: 'Furniture', quantity: 0, reorderLevel: 3, warehouse: 'main', value: 0, status: 'outOfStock' },
-]
-
 export default function StockOverviewPage() {
   const { setActions, setContext, clear } = useTopbarStore()
-  const [stock, setStock] = useState(MOCK_STOCK)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedWarehouse, setSelectedWarehouse] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedProduct, setSelectedProduct] = useState(null)
+
+  const { data: rawProducts = [], isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: productsApi.list
+  })
+
+  const stock = rawProducts.map(p => {
+    const quantity = parseFloat(p.stock_qty || 0)
+    const reorderLevel = parseFloat(p.low_stock_alert || 0)
+    
+    let status = 'inStock'
+    if (quantity === 0) status = 'outOfStock'
+    else if (quantity <= reorderLevel) status = 'lowStock'
+    
+    return {
+      id: p.id,
+      sku: p.sku || p.unique_id || 'N/A',
+      product: p.name,
+      category: p.category || 'Uncategorized',
+      quantity,
+      reorderLevel,
+      warehouse: 'main',
+      value: quantity * parseFloat(p.unit_price || 0),
+      status
+    }
+  })
 
   useEffect(() => {
     setContext('Inventory', 'Stock Overview')
@@ -63,7 +80,11 @@ export default function StockOverviewPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {isLoading ? (
+        <PageLoading />
+      ) : (
+        <>
+          {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         <div className="card" style={{ padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -168,7 +189,12 @@ export default function StockOverviewPage() {
               </thead>
               <tbody>
                 {filteredStock.map(item => (
-                  <tr key={item.id}>
+                  <tr 
+                    key={item.id} 
+                    onClick={() => setSelectedProduct(item)}
+                    style={{ cursor: 'pointer' }}
+                    className="hover-row"
+                  >
                     <td style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--c-text3)', fontWeight: 600 }}>
                       {item.sku}
                     </td>
@@ -224,6 +250,17 @@ export default function StockOverviewPage() {
           <span style={{ fontSize: 12, color: 'var(--c-text2)' }}>Out of Stock: Quantity = 0</span>
         </div>
       </div>
+      </>
+      )}
+
+      {selectedProduct && (
+        <ProductAnalysisModal
+          isOpen={true}
+          onClose={() => setSelectedProduct(null)}
+          productId={selectedProduct.id}
+          product={selectedProduct}
+        />
+      )}
     </div>
   )
 }

@@ -292,81 +292,81 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
         {/* Main Form */}
-        <div>
-          {/* Invoice Header */}
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>Invoice Details</div>
-            <div className="form-grid">
-              <div className="form-group">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Invoice Details + Customer — merged compact card */}
+          <div className="card" style={{ padding: '18px 22px' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontWeight: 700 }}>Invoice Details</div>
+            <div className="form-grid cols-3 compact">
+              <div className="form-group m0">
                 <label className="form-label">Invoice Number *</label>
                 <input className="form-input" value={number} onChange={(e) => setNumber(e.target.value)} placeholder={`${org?.inv_prefix || 'INV-'}001`} />
               </div>
-              <div className="form-group">
+              <div className="form-group m0">
                 <label className="form-label">Status</label>
                 <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
                   {['draft','sent','paid','overdue','cancelled'].map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">Date *</label>
-                <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Due Date *</label>
-                <input className="form-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-              </div>
-              <div className="form-group">
+              <div className="form-group m0">
                 <label className="form-label">Currency</label>
                 <select className="form-select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   {['INR','USD','EUR','GBP','AED'].map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="form-group">
+              <div className="form-group m0">
+                <label className="form-label">Date *</label>
+                <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div className="form-group m0">
+                <label className="form-label">Due Date *</label>
+                <input className="form-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
+              <div className="form-group m0">
                 <label className="form-label">Place of Supply</label>
                 <input className="form-input" value={placeOfSupply} onChange={(e) => setPlaceOfSupply(e.target.value)} placeholder="State name" />
               </div>
             </div>
-          </div>
 
-          {/* Customer */}
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>Customer</div>
-            <div className="form-grid">
-              <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                <label className="form-label">Select Customer</label>
-                <select className="form-select" value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}>
-                  <option value="">— Or type manually below —</option>
-                  {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Customer Name *</label>
-                <input className="form-input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer / business name" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Customer Email</label>
-                <input className="form-input" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Customer Phone</label>
-                <input className="form-input" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+            {/* Customer sub-section */}
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 16 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, fontWeight: 700 }}>Customer</div>
+              <div className="form-grid compact">
+                <div className="form-group m0" style={{ gridColumn: '1/-1' }}>
+                  <label className="form-label">Select Customer</label>
+                  <select className="form-select" value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}>
+                    <option value="">— Or type manually below —</option>
+                    {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group m0">
+                  <label className="form-label">Customer Name *</label>
+                  <input className="form-input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer / business name" />
+                </div>
+                <div className="form-group m0">
+                  <label className="form-label">Customer Email</label>
+                  <input className="form-input" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
+                </div>
+                <div className="form-group m0">
+                  <label className="form-label">Customer Phone</label>
+                  <input className="form-input" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+                </div>
               </div>
             </div>
           </div>
 
           {/* Line Items */}
-          <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card" style={{ padding: '18px 22px' }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               gap: 12, marginBottom: 12, flexWrap: 'wrap',
             }}>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Line Items</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, justifyContent: 'flex-end', minWidth: 320 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>Line Items</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, justifyContent: 'flex-end', minWidth: 280 }}>
                 <ProductCombobox products={products} onPick={addProductLine} />
-                <button type="button" className="btn btn-primary" onClick={() => setScanOpen(true)}>
-                  <ScanLine size={14} /> Scan QR / Barcode
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setScanOpen(true)}>
+                  <ScanLine size={14} /> Scan
                 </button>
               </div>
             </div>
@@ -408,7 +408,7 @@ export default function InvoiceDetail() {
                       gridTemplateColumns: '2.4fr .9fr .7fr 1fr .7fr .9fr 1fr 36px',
                       gap: 8, alignItems: 'center',
                       border: '1px solid var(--border)', borderRadius: 10,
-                      padding: '10px 12px', background: 'var(--bg-1, #fff)',
+                      padding: '10px 12px', background: 'var(--bg-2, #f9fafb)',
                     }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -453,15 +453,15 @@ export default function InvoiceDetail() {
           </div>
 
           {/* Notes & Terms */}
-          <div className="card">
-            <div className="form-grid">
-              <div className="form-group">
+          <div className="card" style={{ padding: '18px 22px' }}>
+            <div className="form-grid compact">
+              <div className="form-group m0">
                 <label className="form-label">Notes (visible on invoice)</label>
-                <textarea className="form-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+                <textarea className="form-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
               </div>
-              <div className="form-group">
+              <div className="form-group m0">
                 <label className="form-label">Terms & Conditions</label>
-                <textarea className="form-textarea" value={terms} onChange={(e) => setTerms(e.target.value)} rows={3} />
+                <textarea className="form-textarea" value={terms} onChange={(e) => setTerms(e.target.value)} rows={2} />
               </div>
             </div>
           </div>
@@ -469,7 +469,7 @@ export default function InvoiceDetail() {
 
         {/* Right Sidebar — Summary */}
         <div>
-          <div className="card" style={{ position: 'sticky', top: 80 }}>
+          <div className="card" style={{ position: 'sticky', top: 80, padding: '18px 20px' }}>
             <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Invoice Summary</div>
 
             {/* Discount */}

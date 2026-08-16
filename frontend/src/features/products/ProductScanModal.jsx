@@ -44,6 +44,40 @@ export default function ProductScanModal({ onClose, onSelect }) {
 
   const handleMatch = (raw) => {
     if (handledRef.current) return
+    const str = String(raw || '').trim()
+    
+    // Check if it's a JSON bundle (e.g. [{"sku":"ABC", "qty":5}])
+    if (str.startsWith('[') || str.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(str)
+        const items = Array.isArray(parsed) ? parsed : [parsed]
+        const resolvedItems = []
+        let missing = 0
+        
+        for (const item of items) {
+          const match = resolveCode(item.sku || item.itemCode || item.barcode || item.product_id)
+          if (match) {
+            resolvedItems.push({ product: match, qty: Number(item.qty) || 1 })
+          } else {
+            missing++
+          }
+        }
+        
+        if (resolvedItems.length > 0) {
+          handledRef.current = true
+          toast.success(`Scanned bundle: ${resolvedItems.length} items added${missing ? ` (${missing} skipped)` : ''}`)
+          onSelect(resolvedItems, true) // true indicates it's a bundle/array
+          onClose()
+          return
+        } else {
+          toast.error("QR Code JSON parsed, but no matching products found.")
+          return
+        }
+      } catch (e) {
+        // Not valid JSON, fall through to normal SKU lookup
+      }
+    }
+
     const match = resolveCode(raw)
     if (!match) {
       toast.error(`No product matches "${raw}"`)
@@ -51,7 +85,7 @@ export default function ProductScanModal({ onClose, onSelect }) {
     }
     handledRef.current = true
     toast.success(`Scanned: ${match.name}`)
-    onSelect(match)
+    onSelect(match, false)
     onClose()
   }
 

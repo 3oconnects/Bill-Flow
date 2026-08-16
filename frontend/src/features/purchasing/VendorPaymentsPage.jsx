@@ -9,6 +9,7 @@ import { fmt } from '@/lib/utils'
 import { vendorPaymentsApi } from '@/api'
 import { toast } from '@/store/toastStore'
 import RecordVendorPaymentModal from './RecordVendorPaymentModal'
+import { confirmAction } from '@/store/confirmStore'
 
 const METHOD_LABELS = {
   bank_transfer: 'Bank Transfer',
@@ -176,7 +177,7 @@ export default function VendorPaymentsPage() {
                     </td>
                     <td>
                       <button className="topbar-icon-btn red" title="Delete"
-                        onClick={() => window.confirm('Delete this payment? Will revert the AP invoice paid amount.') && removeMut.mutate(p.id)}>
+                        onClick={() => confirmAction('Delete this payment? Will revert the AP invoice paid amount.', () => removeMut.mutate(p.id))}>
                         <Trash2 size={13} />
                       </button>
                     </td>

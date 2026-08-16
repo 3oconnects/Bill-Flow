@@ -13,7 +13,11 @@ import { PageLoading } from '@/components/ui'
 // Each page chunk loads only on first visit — no upfront bundle cost.
 
 // Core
+const LandingPage       = lazy(() => import('@/features/landing/LandingPage'))
+const TermsPage         = lazy(() => import('@/features/landing/TermsPage'))
+const PrivacyPage       = lazy(() => import('@/features/landing/PrivacyPage'))
 const AuthPage          = lazy(() => import('@/features/auth/AuthPage'))
+const VerifyEmailPage   = lazy(() => import('@/features/auth/VerifyEmailPage'))
 const DashboardPage     = lazy(() => import('@/features/dashboard/DashboardPage'))
 
 // Sales
@@ -153,7 +157,11 @@ export default function App() {
       <Suspense fallback={<PageSuspense />}>
         <Routes>
           {/* Public */}
+          <Route path="/" element={<RequireGuest><LandingPage /></RequireGuest>} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/login" element={<RequireGuest><AuthPage /></RequireGuest>} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Protected — AppLayout wraps all */}
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
@@ -276,7 +284,7 @@ export default function App() {
           </Route>
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
       <ToastContainer />

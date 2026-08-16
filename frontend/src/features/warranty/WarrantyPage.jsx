@@ -13,6 +13,7 @@ import Modal from '@/components/Modal'
 import CustomerCombobox from '@/features/customers/CustomerCombobox'
 import ProductScanModal from '@/features/products/ProductScanModal'
 import WarrantyDetailModal from './WarrantyDetailModal'
+import { confirmAction } from '@/store/confirmStore'
 
 const STATUS_OPTS = ['pending', 'approved', 'rejected', 'resolved']
 
@@ -436,7 +437,7 @@ export default function WarrantyPage() {
                           <Eye size={13} />
                         </button>
                         <button className="btn btn-ghost btn-xs" onClick={() => setStatusClaim(c)}>Update</button>
-                        <button className="topbar-icon-btn red" onClick={() => window.confirm('Delete this claim?') && deleteMut.mutate(c.id)}>
+                        <button className="topbar-icon-btn red" onClick={() => confirmAction('Delete this claim?', () => deleteMut.mutate(c.id))}>
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -468,7 +469,7 @@ export default function WarrantyPage() {
           claim={viewClaim}
           onClose={() => setViewClaim(null)}
           onUpdate={(c) => setStatusClaim(c)}
-          onDelete={(c) => window.confirm('Delete this claim?') && deleteMut.mutate(c.id)}
+          onDelete={(c) => confirmAction('Delete this claim?', () => deleteMut.mutate(c.id))}
         />
       )}
     </div>

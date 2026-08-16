@@ -102,6 +102,16 @@ router.post('/', requireAuth, async (req, res) => {
     if (!return_date) return sendError(res, 'Return date is required', 'VALIDATION_ERROR', 400);
     if (!items.length) return sendError(res, 'At least one item is required', 'VALIDATION_ERROR', 400);
 
+    if (base_receipt_no) {
+      const existing = await db.query(
+        "SELECT 1 FROM goods_returns WHERE org_id=$1 AND base_receipt_no=$2 AND status != 'cancelled'",
+        [req.orgId, base_receipt_no]
+      );
+      if (existing.rows.length > 0) {
+        return sendError(res, 'A Goods Return already exists for this Base Receipt', 'VALIDATION_ERROR', 400);
+      }
+    }
+
     const id        = uuid();
     const return_no = await generateReturnNo(req.orgId);
     const totals    = calcTotals(items);
@@ -341,8 +351,8 @@ router.patch('/:id/close', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// ── Cancel ────────────────────────────────────────────── DELETE /:id
-router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+// 🗑️ Cancel 🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️🗑️ DELETE /:id
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const gr = await stmts.getGoodsReturn.get(req.params.id, req.orgId);
     if (!gr) return sendError(res, 'Not found', 'NOT_FOUND', 404);
@@ -352,6 +362,7 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     await logAction(req.orgId, req.params.id, 'Cancelled', gr.status, 'cancelled', req.body.reason || null, req.user.id);
     sendSuccess(res, { cancelled: true });
   } catch (err) {
+    console.error('[DELETE /goods-returns/:id] Error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 });

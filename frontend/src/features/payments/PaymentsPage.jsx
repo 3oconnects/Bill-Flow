@@ -10,6 +10,7 @@ import { useTopbarStore } from '@/store/topbarStore'
 import Modal from '@/components/Modal'
 import { useForm } from 'react-hook-form'
 import InvoicePreview from '../invoices/InvoicePreview'
+import { confirmAction } from '@/store/confirmStore'
 
 function PaymentForm({ invoices, onSuccess, onCancel }) {
   const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm({
@@ -219,7 +220,7 @@ export default function PaymentsPage() {
                       <td>
                         <div className="tbl-actions">
                           <button className="topbar-icon-btn red" title="Delete"
-                            onClick={() => window.confirm('Delete this payment record?') && deleteMut.mutate(p.id)}>
+                            onClick={() => confirmAction('Delete this payment record?', () => deleteMut.mutate(p.id))}>
                             <Trash2 size={14} />
                           </button>
                         </div>

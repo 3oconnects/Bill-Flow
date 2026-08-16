@@ -62,6 +62,7 @@ function queryWithRetry(text, params, attempt) {
 var db = {
   query:   function(text, params) { return queryWithRetry(text, params, 0); },
   connect: function() { return pool.connect(); },
+  pool:    pool,
   prepare: function(sql) {
     var count = 0;
     var pgSql = sql.replace(/\?/g, function() { return '$' + (++count); });
@@ -81,6 +82,49 @@ var db = {
         return queryWithRetry(pgSql, params, 0).then(function(r) { return r.rows; });
       },
     };
+  },
+
+  /**
+   * Set the RLS org context for the current connection/transaction.
+   * Must be called inside a transaction (BEGIN ... COMMIT) for SET LOCAL to work.
+   * Usage:
+   *   const client = await db.connect();
+   *   try {
+   *     await client.query('BEGIN');
+   *     await db.setOrgContext(client, orgId);
+   *     // ... queries are now RLS-scoped to orgId ...
+   *     await client.query('COMMIT');
+   *   } finally { client.release(); }
+   */
+  setOrgContext: async function(client, orgId) {
+    if (!orgId) return;
+    // SET LOCAL is transaction-scoped and resets automatically on COMMIT/ROLLBACK
+    await client.query("SET LOCAL app.current_org_id = '" + orgId.replace(/'/g, "''") + "'");
+  },
+
+  /**
+   * Run a callback within a transaction that has org context set for RLS.
+   * Simplifies the common pattern of connect → BEGIN → SET LOCAL → work → COMMIT.
+   * @param {string} orgId - The organization ID for RLS
+   * @param {function} fn - async (client) => result
+   * @returns {*} The return value of fn
+   */
+  withOrgContext: async function(orgId, fn) {
+    var client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (orgId) {
+        await client.query("SET LOCAL app.current_org_id = '" + orgId.replace(/'/g, "''") + "'");
+      }
+      var result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(function() {});
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 };
 

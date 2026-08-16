@@ -8,7 +8,7 @@
 
 > ## ❌ NO — BILLFLOW IS NOT READY FOR PRODUCTION
 
-BillFlow has a strong frontend and a promising architecture, but contains **critical backend defects that guarantee financial data corruption under real usage**. Three core financial engines — payment allocation, inventory stock deduction, and GST ledger posting — were built as standalone services but are **completely disconnected from the API routes**. Every invoice a real customer creates today bypasses stock deduction, creates no GST ledger entry, and performs no payment allocation.
+Ozofi Books has a strong frontend and a promising architecture, but contains **critical backend defects that guarantee financial data corruption under real usage**. Three core financial engines — payment allocation, inventory stock deduction, and GST ledger posting — were built as standalone services but are **completely disconnected from the API routes**. Every invoice a real customer creates today bypasses stock deduction, creates no GST ledger entry, and performs no payment allocation.
 
 The entire security middleware stack (helmet, CORS, rate limiting) lives in `server-PRODUCTION.js` — a file that **is never run**. The app runs `server.js`, which has none of it. Input validation (Zod) is fully written but never imported in any route. The Bull queue for recurring billing is installed but has **zero worker files**.
 
@@ -144,7 +144,7 @@ SUM(CASE WHEN gst_type='intra' THEN sgst ELSE 0 END) as sgst_outward
 
 ## PHASE 3 — ACCOUNTING ENGINE
 
-BillFlow needs a double-entry General Ledger. Without it, the Balance Sheet cannot balance, Trial Balance cannot be generated, and Period-Close is not possible.
+Ozofi Books needs a double-entry General Ledger. Without it, the Balance Sheet cannot balance, Trial Balance cannot be generated, and Period-Close is not possible.
 
 ### Migration 006 — Required Schema
 ```sql
@@ -596,7 +596,7 @@ module.exports = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'billflow-api' },
+  defaultMeta: { service: 'ozofibooks-api' },
   transports: [new winston.transports.Console()],
 });
 
@@ -789,16 +789,16 @@ router.get('/health/db', async (req, res) => {
 
 ### Engineering Leadership Bottom Line
 
-BillFlow has excellent bones. The PostgreSQL schema is production-grade. The financial service layer is architecturally sound. The security middleware is written and correct. The frontend covers almost every workflow an Indian SMB needs.
+Ozofi Books has excellent bones. The PostgreSQL schema is production-grade. The financial service layer is architecturally sound. The security middleware is written and correct. The frontend covers almost every workflow an Indian SMB needs.
 
 **The single biggest problem is one of integration, not design.** Three perfectly implemented financial services — payment allocation, inventory deduction, GST posting — are completely disconnected from the running application. Each can be wired in under 2–4 hours.
 
 **The second biggest problem** is that the entire security stack lives in a file that is never run. This is a 30-minute fix with production-ending consequences if not addressed.
 
-Execute the 6-week roadmap above — prioritising the 14 P0 blockers in Week 1 — and BillFlow will safely and confidently serve **1,000 paying Indian SMBs**. The architecture will scale to 10,000 businesses with the Phase 7 investments.
+Execute the 6-week roadmap above — prioritising the 14 P0 blockers in Week 1 — and Ozofi Books will safely and confidently serve **1,000 paying Indian SMBs**. The architecture will scale to 10,000 businesses with the Phase 7 investments.
 
 > **Projected production readiness score after 6 weeks of focused execution: 88 / 100**
 
 ---
 
-*Document prepared June 2026 · BillFlow Pro Engineering Leadership*
+*Document prepared June 2026 · Ozofi Books Pro Engineering Leadership*

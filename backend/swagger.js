@@ -9,12 +9,12 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'BillFlow Pro API',
+      title: 'Ozofi Books Pro API',
       version: '1.0.0',
       description: 'Full-stack billing platform for SMBs in India',
       contact: {
-        name: 'BillFlow Support',
-        email: 'support@billflow.io',
+        name: 'Ozofi Books Support',
+        email: 'support@ozofibooks.io',
       },
       license: {
         name: 'MIT',
@@ -26,7 +26,7 @@ const options = {
         description: 'Development server',
       },
       {
-        url: 'https://billflow.vercel.app',
+        url: 'https://ozofibooks.vercel.app',
         description: 'Production server',
       },
     ],

@@ -38,6 +38,35 @@ module.exports = {
   deleteProduct: db.prepare(`UPDATE products SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
   updateProductStock: db.prepare(`UPDATE products SET stock_qty=stock_qty+?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
 
+  getProductAnalysisMetrics: db.prepare(`
+    SELECT 
+      COALESCE(SUM(ii.quantity), 0) AS total_sold,
+      COALESCE(SUM(ii.amount), 0) AS total_revenue
+    FROM invoice_items ii
+    JOIN invoices i ON ii.invoice_id = i.id
+    WHERE ii.product_id = ? AND ii.org_id = ? 
+      AND i.status NOT IN ('draft', 'cancelled') 
+      AND i.deleted_at IS NULL
+      AND ii.deleted_at IS NULL
+  `),
+  getProductAnalysisSales: db.prepare(`
+    SELECT 
+      i.id AS invoice_id,
+      i.number AS invoice_number,
+      i.customer_name,
+      i.date AS invoice_date,
+      ii.quantity,
+      ii.amount
+    FROM invoice_items ii
+    JOIN invoices i ON ii.invoice_id = i.id
+    WHERE ii.product_id = ? AND ii.org_id = ? 
+      AND i.status NOT IN ('draft', 'cancelled') 
+      AND i.deleted_at IS NULL
+      AND ii.deleted_at IS NULL
+    ORDER BY i.date DESC, i.created_at DESC
+    LIMIT 50
+  `),
+
   // Stock movements
   insertStockMovement: db.prepare(`INSERT INTO stock_movements (id, org_id, product_id, type, delta, qty_before, qty_after, reason, note, reference_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
   getStockMovements: db.prepare(`SELECT sm.*, u.name as created_by_name FROM stock_movements sm LEFT JOIN users u ON sm.created_by = u.id WHERE sm.org_id = ? AND sm.product_id = ? ORDER BY sm.created_at DESC LIMIT 100`),

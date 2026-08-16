@@ -17,6 +17,7 @@ import { STATUS_META, FUNNEL_STAGES, FUNNEL_COLORS } from './QuotationsShared'
 import { AICard } from './QuotationsComponents'
 import QuotationForm from './QuotationForm'
 import QuoteTable from './QuoteTable'
+import { confirmAction } from '@/store/confirmStore'
 
 export default function QuotationsPage() {
   const { setContext, setActions, clear } = useTopbarStore()
@@ -226,7 +227,7 @@ export default function QuotationsPage() {
             <QuoteTable quotes={quotes.slice(0, 8)}
               onStatus={(id, s) => statusMut.mutate({ id, status: s })}
               onConvert={id => convertMut.mutate(id)}
-              onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)}
+              onDelete={id => confirmAction('Delete?', () => deleteMut.mutate(id))}
             />
           </div>
         </div>
@@ -251,7 +252,7 @@ export default function QuotationsPage() {
           <QuoteTable quotes={filtered}
             onStatus={(id, s) => statusMut.mutate({ id, status: s })}
             onConvert={id => convertMut.mutate(id)}
-            onDelete={id => window.confirm('Delete?') && deleteMut.mutate(id)}
+            onDelete={id => confirmAction('Delete?', () => deleteMut.mutate(id))}
           />
         </div>
       )}

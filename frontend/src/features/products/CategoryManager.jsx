@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit2, Trash2, Check, X } from 'lucide-react'
+import { confirmAction } from '@/store/confirmStore'
 import { productsApi } from '@/api'
 import { toast } from '@/store/toastStore'
 import { Spinner } from '@/components/ui'
@@ -79,7 +80,7 @@ export default function CategoryManager({ onClose }) {
   })
 
   const handleDelete = (catId) => {
-    if (window.confirm('Delete this category?')) deleteMut.mutate(catId)
+    confirmAction('Delete this category?', () => deleteMut.mutate(catId))
   }
 
   return (

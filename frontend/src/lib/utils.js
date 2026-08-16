@@ -1,4 +1,4 @@
-// Formatting utilities for BillFlow Pro
+// Formatting utilities for Ozofi Books Pro
 
 export const fmt = {
   currency: (n, currency = 'INR') =>

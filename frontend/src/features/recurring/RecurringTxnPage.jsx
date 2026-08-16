@@ -9,6 +9,7 @@ import {
 import PurchaseTemplateModal   from './PurchaseTemplateModal'
 import RecurringInvoiceModal   from './RecurringInvoiceModal'
 import RecurringDetailModal    from './RecurringDetailModal'
+import { confirmAction } from '@/store/confirmStore'
 import { FREQ_LABELS, totalMonthlyValue } from './recurringShared'
 import { fmt } from '@/lib/utils'
 import { recurringApi } from '@/api'
@@ -137,9 +138,10 @@ export default function RecurringTxnPage() {
   }
 
   const handleDelete = (item) => {
-    if (!window.confirm(`Delete "${item.name}"? This cannot be undone.`)) return
-    if (isInvoice) deleteInvoiceMut.mutate(item.id)
-    else           deleteTemplateMut.mutate(item.id)
+    confirmAction(`Delete "${item.name}"? This cannot be undone.`, () => {
+      if (isInvoice) deleteInvoiceMut.mutate(item.id)
+      else           deleteTemplateMut.mutate(item.id)
+    })
   }
 
   const handleEdit = (item) => { setEditing(item); setModalOpen(true) }
