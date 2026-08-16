@@ -15,13 +15,6 @@
 #   3. If Render assigns different service URLs than the defaults below,
 #      update FRONTEND_URL / BACKEND_URL and the rewrite destination to match.
 
-databases:
-  - name: ozofibooks-db
-    databaseName: ozofibooks_pro
-    user: ozofibooks
-    plan: starter
-    region: oregon
-    postgresMajorVersion: "16"
 
 services:
   # ── Backend API ────────────────────────────────────────────────────────────
@@ -43,29 +36,19 @@ services:
       - key: PORT
         value: 3000
 
-      # Database (from ozofibooks-db above)
+      # Database (Supabase Pooler Connection)
       - key: DB_HOST
-        fromDatabase:
-          name: ozofibooks-db
-          property: host
+        value: aws-1-ap-southeast-1.pooler.supabase.com
       - key: DB_PORT
-        fromDatabase:
-          name: ozofibooks-db
-          property: port
+        value: "6543"
       - key: DB_NAME
-        fromDatabase:
-          name: ozofibooks-db
-          property: database
+        value: postgres
       - key: DB_USER
-        fromDatabase:
-          name: ozofibooks-db
-          property: user
+        value: postgres.doinuhukdykftwbwlodz
       - key: DB_PASSWORD
-        fromDatabase:
-          name: ozofibooks-db
-          property: password
+        value: "Bill-Flow@Ozofi!"
       - key: DB_SSL
-        value: "true"
+        value: "false"
       - key: DB_POOL_MAX
         value: "25"
 
