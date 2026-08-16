@@ -45,9 +45,9 @@ const applyThemeToDOM = (isDark: boolean) => {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      // Default to system preference
-      mode: 'system',
-      isDark: getSystemPreference(),
+      // Default to light mode
+      mode: 'light',
+      isDark: false,
 
       setMode: (mode: ThemeMode) => {
         const isDark =

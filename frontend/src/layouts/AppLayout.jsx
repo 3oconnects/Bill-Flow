@@ -194,6 +194,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed]       = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [resending, setResending] = useState(false)
   const userMenuRef = useRef(null)
@@ -229,13 +230,21 @@ export default function AppLayout() {
   return (
     <div className="app-layout">
 
+      {/* ── Mobile Backdrop ── */}
+      {isMobileMenuOpen && (
+        <div 
+          className="sidebar-backdrop" 
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* ── Sidebar ── */}
-      <aside id="sidebar" className={collapsed ? 'collapsed' : ''}>
+      <aside id="sidebar" className={`${collapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
 
         {/* Org header */}
         <div className="sidebar-header" onClick={() => navigate('/settings')} style={{ cursor: 'pointer' }}>
-          <div className="org-avatar" style={{ background: 'transparent', padding: 0 }}>
-            <img src="/logo.png?v=2" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.4)' }} />
+          <div className="org-avatar" style={{ background: '#ffffff', padding: '4px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
+            <img src="/logo.png?v=2" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.15)' }} />
           </div>
           {!collapsed && (
             <div className="org-info">
@@ -261,6 +270,7 @@ export default function AppLayout() {
                   key={item.id}
                   to={item.to}
                   className={`nav-item${isItemActive ? ' active' : ''}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <item.icon size={15} className="nav-icon" />
                   {!collapsed && <span>{item.label}</span>}
@@ -290,7 +300,10 @@ export default function AppLayout() {
       <div className="main-wrap">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="topbar-menu-btn" onClick={() => setCollapsed(c => !c)}>
+            <button className="topbar-menu-btn desktop-menu-btn" onClick={() => setCollapsed(c => !c)}>
+              <Menu size={20} />
+            </button>
+            <button className="topbar-menu-btn mobile-menu-btn" onClick={() => setIsMobileMenuOpen(true)}>
               <Menu size={20} />
             </button>
             <div className="topbar-page-ctx">

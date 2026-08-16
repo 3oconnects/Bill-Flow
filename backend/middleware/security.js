@@ -64,6 +64,8 @@ const corsConfig = {
       process.env.BACKEND_URL,
       'http://localhost:3000',
       'http://localhost:5174',
+      'https://ozofi-books.vercel.app',
+      'https://books.ozofi.com'
     ].filter(Boolean);
 
     if (whitelist.includes(origin)) return callback(null, true);

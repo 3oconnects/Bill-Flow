@@ -146,7 +146,7 @@ export default function AuthPage() {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo" style={{ display: 'flex', justifyContent: 'center' }}>
-            <img src="/logo.png?v=2" alt="Ozofi Books Logo" style={{ height: '64px', width: 'auto', transform: 'scale(1.2)' }} />
+            <img src="/logo.png?v=2" alt="Ozofi Books Logo" style={{ height: '64px', width: 'auto', transform: 'scale(1.1)', background: '#ffffff', padding: '6px', borderRadius: '14px', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }} />
           </div>
           <div className="auth-tagline">Cloud Billing & ERP for India</div>
         </div>

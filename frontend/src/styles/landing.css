@@ -61,6 +61,7 @@
   color: #ffffff;
   border: none;
   border-radius: 8px;
+  padding: 0.875rem 2.25rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
@@ -166,17 +167,11 @@
   padding: 10rem 0 4rem;
   position: relative;
   overflow: hidden;
-  background-color: #f8fafc;
+  background-color: var(--lp-bg);
   background-image: 
-    radial-gradient(at 0% 0%, hsla(217, 100%, 94%, 1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, hsla(210, 100%, 95%, 1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, hsla(217, 100%, 96%, 1) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, hsla(213, 100%, 96%, 1) 0px, transparent 50%);
-  animation: bgShift 15s ease infinite alternate;
-}
-@keyframes bgShift {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 100% 100%; }
+    radial-gradient(circle at top left, rgba(59,130,246,0.15), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(99,102,241,0.15), transparent 40%),
+    radial-gradient(circle at center, rgba(37,99,235,0.05), transparent 50%);
 }
 .landing-hero-content {
   text-align: center; max-width: 850px; margin: 0 auto 3rem; position: relative; z-index: 1;
@@ -235,6 +230,52 @@
 .section-title h2 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1rem; }
 .section-title p { font-size: 1.15rem; color: var(--lp-text-main); }
 
+/* Premium Hovers & Glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
+}
+
+.feature-card {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  border-radius: 12px;
+}
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px -10px rgba(37,99,235,0.1);
+}
+
+/* Hero Mockup Grid */
+.hero-mockup-grid {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.hero-mockup-card {
+  padding: 16px;
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.mockup-label {
+  font-size: 12px;
+  color: var(--lp-text-muted);
+  margin-bottom: 8px;
+}
+.mockup-value {
+  font-size: 24px;
+  font-weight: 800;
+}
+.mockup-trend {
+  font-size: 11px;
+  margin-top: 8px;
+}
+.trend-up { color: #16a34a; }
+.trend-neutral { color: var(--lp-text-muted); }
+
 .landing-feature-row { display: flex; align-items: center; gap: 4rem; margin-bottom: 6rem; }
 .landing-feature-row.reverse { flex-direction: row-reverse; }
 .feature-text { flex: 1; }
@@ -282,6 +323,37 @@
 .pricing-toggle button { padding: 0.6rem 1.75rem; background: transparent; border: none; border-radius: 6px; font-weight: 600; color: var(--lp-text-muted); cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.5rem; }
 .pricing-toggle button.active { background: #fff; color: var(--lp-text-bright); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 .save-tag { background: #dcfce7; color: #166534; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+
+/* Trust metrics */
+.trust-metrics {
+  display: flex; gap: 2rem; justify-content: center; margin-top: 3rem; flex-wrap: wrap;
+}
+.trust-metric-item {
+  text-align: center;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--lp-border);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease;
+  flex: 1;
+  min-width: 200px;
+}
+.trust-metric-item:hover {
+  transform: translateY(-4px);
+}
+.trust-metric-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--lp-accent);
+  margin-bottom: 0.5rem;
+}
+.trust-metric-label {
+  font-size: 0.9rem;
+  color: var(--lp-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
 
 .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
 .pricing-card { background: #fff; border: 1px solid var(--lp-border); border-radius: 12px; padding: 2.5rem 2rem; position: relative; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
@@ -352,4 +424,11 @@
   .landing-hero h1 { font-size: 2.25rem; }
   .landing-hero-buttons { flex-direction: column; }
   .footer-grid { grid-template-columns: 1fr; }
+  
+  /* Make mockup grid responsive */
+  .hero-mockup-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 16px;
+  }
 }

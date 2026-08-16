@@ -111,20 +111,83 @@ export default function LandingPage() {
           </div>
 
           {/* Hero App Mockup */}
-          <div className="landing-hero-image-wrap animate-fade-up" style={{animationDelay: '500ms'}}>
-            <img src="/hero-mockup.png" alt="Ozofi Books Dashboard Mockup" />
+          <div className="landing-hero-image-wrap animate-fade-up glass-card" style={{animationDelay: '500ms', padding: '1rem', background: 'rgba(255,255,255,0.4)', borderRadius: '16px'}}>
+            <div style={{ background: '#ffffff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+              {/* Fake Topbar */}
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--lp-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ef4444' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#eab308' }}></div>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e' }}></div>
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--lp-text-muted)' }}>Dashboard Overview</div>
+                <div></div>
+              </div>
+              {/* Fake Content */}
+              <div className="hero-mockup-grid">
+                <div className="hero-mockup-card">
+                  <div className="mockup-label">Total Revenue</div>
+                  <div className="mockup-value text-bright">₹12,48,000</div>
+                  <div className="mockup-trend trend-up">+14.5% from last month</div>
+                </div>
+                <div className="hero-mockup-card">
+                  <div className="mockup-label">Invoices Generated</div>
+                  <div className="mockup-value text-bright">1,248</div>
+                  <div className="mockup-trend trend-neutral">This Year</div>
+                </div>
+                <div className="hero-mockup-card">
+                  <div className="mockup-label">Payment Success</div>
+                  <div className="mockup-value text-accent">92%</div>
+                  <div className="mockup-trend trend-neutral">Avg. paid within 7 days</div>
+                </div>
+              </div>
+              {/* Fake Chart Area */}
+              <div style={{ padding: '0 24px 24px' }}>
+                <div style={{ height: '140px', background: 'var(--lp-bg-alt)', borderRadius: '8px', position: 'relative', overflow: 'hidden' }}>
+                  <svg viewBox="0 0 400 120" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+                    <defs>
+                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(37,99,235,0.25)"/>
+                        <stop offset="100%" stopColor="rgba(37,99,235,0)"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M0 100 C 60 100, 100 40, 160 50 C 220 60, 260 20, 320 30 C 360 36, 380 60, 400 70 L 400 120 L 0 120 Z" fill="url(#chartGradient)"/>
+                    <path d="M0 100 C 60 100, 100 40, 160 50 C 220 60, 260 20, 320 30 C 360 36, 380 60, 400 70" fill="none" stroke="var(--lp-accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Trusted By Logos */}
-        <div className="landing-trusted">
-          <p>Trusted by over 2,000 forward-thinking companies</p>
-          <div className="landing-trusted-logos">
-            <div className="t-logo"><Globe size={24}/> Acme Corp</div>
-            <div className="t-logo"><Zap size={24}/> TechFlow</div>
-            <div className="t-logo"><ShieldCheck size={24}/> SecurePay</div>
-            <div className="t-logo"><Users size={24}/> TeamSync</div>
-            <div className="t-logo"><BarChart3 size={24}/> DataPro</div>
+        {/* Trust Metrics Section */}
+        <div style={{ padding: '2rem 0', marginTop: '2rem' }}>
+          <div className="landing-container text-center">
+            <p style={{ fontSize: '1rem', color: 'var(--lp-text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Trusted by 2,000+ forward-thinking companies
+            </p>
+            <div className="trust-metrics">
+              <div className="trust-metric-item">
+                <div className="trust-metric-value">10M+</div>
+                <div className="trust-metric-label">Invoices Generated</div>
+              </div>
+              <div className="trust-metric-item">
+                <div className="trust-metric-value">99.9%</div>
+                <div className="trust-metric-label">Uptime SLA</div>
+              </div>
+              <div className="trust-metric-item">
+                <div className="trust-metric-value">₹5B+</div>
+                <div className="trust-metric-label">Payments Processed</div>
+              </div>
+            </div>
+            
+            <div className="landing-trusted-logos" style={{ marginTop: '3rem' }}>
+              <div className="t-logo"><Globe size={24}/> Acme Corp</div>
+              <div className="t-logo"><Zap size={24}/> TechFlow</div>
+              <div className="t-logo"><ShieldCheck size={24}/> SecurePay</div>
+              <div className="t-logo"><Users size={24}/> TeamSync</div>
+              <div className="t-logo"><BarChart3 size={24}/> DataPro</div>
+            </div>
           </div>
         </div>
       </header>
@@ -204,8 +267,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Testimonials ── */}
+      <section className="landing-section bg-alt">
+        <div className="landing-container">
+          <div className="section-title text-center">
+            <h2>Loved by business owners</h2>
+            <p>Don't just take our word for it. Here is what our customers say.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+            <div className="glass-card" style={{ padding: '2rem', borderRadius: '12px' }}>
+              <div style={{ color: '#eab308', marginBottom: '1rem', letterSpacing: '4px' }}>★★★★★</div>
+              <p style={{ fontStyle: 'italic', marginBottom: '1.5rem', color: 'var(--lp-text-main)' }}>"Ozofi Books reduced our billing time by 80%. We used to spend hours reconciling payments, now it's all automated. Pure magic."</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--lp-accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>S</div>
+                <div>
+                  <div style={{ fontWeight: '700', color: 'var(--lp-text-bright)' }}>Sarah Jenkins</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--lp-text-muted)' }}>CEO, TechFlow</div>
+                </div>
+              </div>
+            </div>
+            <div className="glass-card" style={{ padding: '2rem', borderRadius: '12px' }}>
+              <div style={{ color: '#eab308', marginBottom: '1rem', letterSpacing: '4px' }}>★★★★★</div>
+              <p style={{ fontStyle: 'italic', marginBottom: '1.5rem', color: 'var(--lp-text-main)' }}>"The GST reporting feature alone is worth the price. It's so much faster than our previous ERP. The interface is simply gorgeous."</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>M</div>
+                <div>
+                  <div style={{ fontWeight: '700', color: 'var(--lp-text-bright)' }}>Michael Chen</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--lp-text-muted)' }}>Founder, DataPro</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Pricing ── */}
-      <section className="landing-section bg-alt" id="pricing">
+      <section className="landing-section" id="pricing">
         <div className="landing-container">
           <div className="section-title text-center">
             <span className="landing-badge">Pricing</span>
@@ -306,7 +403,10 @@ export default function LandingPage() {
         <div className="landing-container">
           <div className="footer-grid">
             <div className="f-brand">
-              <img src="/logo.png?v=2" alt="Ozofi Books Logo" style={{ height: '40px', width: 'auto', marginBottom: '1rem', transform: 'scale(1.3)', transformOrigin: 'left center' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <img src="/logo.png?v=2" alt="Ozofi Books Logo" style={{ height: '40px', width: 'auto', transform: 'scale(1.2)', transformOrigin: 'left center', background: '#ffffff', padding: '4px', borderRadius: '10px', boxShadow: '0 0 10px rgba(255,255,255,0.2)' }} />
+                <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff' }}>Ozofi Books</span>
+              </div>
               <p>The operating system for modern business finance.</p>
             </div>
             <div className="f-links">

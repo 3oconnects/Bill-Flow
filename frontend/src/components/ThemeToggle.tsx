@@ -14,14 +14,14 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      className="topbar-menu-btn"
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label="Toggle theme"
     >
       {isDark ? (
-        <Sun className="w-5 h-5 text-yellow-500" />
+        <Sun size={20} />
       ) : (
-        <Moon className="w-5 h-5 text-gray-700" />
+        <Moon size={20} />
       )}
     </button>
   );
