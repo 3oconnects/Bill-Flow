@@ -500,11 +500,14 @@ html.dark {
  
 /* ── RESPONSIVE DESIGN ────────────────────────── */
 @media (max-width: 1024px) {
+  .topbar-center { display: none; }
+  .form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
   #sidebar { width: 68px; }
   #sidebar .logo-text, #sidebar .org-info, #sidebar .nav-item span, #sidebar .nav-arrow { display: none; }
   #sidebar .nav-item { justify-content: center; padding: 10px; }
-  .topbar-center { display: none; }
-  .form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 768px) {
