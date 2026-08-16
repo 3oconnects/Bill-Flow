@@ -373,7 +373,7 @@ export default function BankingInsightsPage() {
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text)' }}>{item.risk}</div>
                     <div style={{ fontSize: 11, color: 'var(--c-text3)', marginTop: 4 }}>Metric: {item.metric}</div>
                   </div>
-                  <div style={{ padding: '12px 0', background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+                  <div style={{ background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: Status.color, marginBottom: 4 }}>Impact: {item.impact}</div>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--c-text2)', lineHeight: 1.5 }}>
