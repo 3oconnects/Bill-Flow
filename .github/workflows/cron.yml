@@ -1,0 +1,33 @@
+name: Vercel Cron Jobs (Private Repo Workaround)
+
+on:
+  schedule:
+    # Recurring Invoices (Runs at 02:00 UTC)
+    - cron: '0 2 * * *'
+    # Aging Invoices (Runs at 02:15 UTC)
+    - cron: '15 2 * * *'
+    # Refresh Views (Runs at 02:30 UTC)
+    - cron: '30 2 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  run-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit Recurring Invoices Cron
+        if: github.event.schedule == '0 2 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -X GET "${{ secrets.VERCEL_PROJECT_URL }}/api/cron/recurring" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Hit Aging Invoices Cron
+        if: github.event.schedule == '15 2 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -X GET "${{ secrets.VERCEL_PROJECT_URL }}/api/cron/aging" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Hit Refresh Views Cron
+        if: github.event.schedule == '30 2 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -X GET "${{ secrets.VERCEL_PROJECT_URL }}/api/cron/refresh-views" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
