@@ -72,6 +72,8 @@ async function initSchema() {
 async function reconcileSalesDrift() {
   const stmts = [
     // invoices — GST split, payment tracking
+    `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS source_template_id TEXT`,
+    `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS billing_period    TEXT`,
     `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS paid_amount       NUMERIC(14,2) DEFAULT 0`,
     // H2: credit notes applied to an invoice are tracked separately from cash paid,
     // so revenue/cash are not overstated. balance_due = total - paid - credited.

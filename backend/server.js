@@ -103,9 +103,8 @@ if (require.main === module) {
       process.exit(1);
     }
 
-    // 2. Optional background workers.
-    try { require('./workers/scheduler'); }              catch (e) { logger.warn('scheduler not loaded: ' + e.message); }
-    try { require('./workers/recurringInvoiceWorker'); } catch (e) { logger.warn('recurringInvoiceWorker not loaded: ' + e.message); }
+    // 2. Background workers removed for Vercel Cron compatibility.
+    // Scheduled tasks are now triggered via /api/cron endpoints.
 
     // 3. Start listening.
     app.listen(PORT, () => {

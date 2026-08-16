@@ -64,7 +64,7 @@ class InventoryTransactionService {
       );
 
       await client.query(
-        'INSERT INTO invoices (id, org_id, number, customer_id, customer_name, customer_phone, customer_email, date, due_date, currency, place_of_supply, supplier_state, buyer_state, status, subtotal, discount_pct, discount_amount, tax, cgst, sgst, igst, total_tax, total, gst_type, hsn_applicable, notes, terms, created_by, paid_amount, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,0,NOW(),NOW())',
+        'INSERT INTO invoices (id, org_id, number, customer_id, customer_name, customer_phone, customer_email, date, due_date, currency, place_of_supply, supplier_state, buyer_state, status, subtotal, discount_pct, discount_amount, tax, cgst, sgst, igst, total_tax, total, gst_type, hsn_applicable, notes, terms, created_by, source_template_id, billing_period, paid_amount, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,0,NOW(),NOW())',
         [
           invoiceId, orgId,
           invoiceData.number, invoiceData.customer_id || null,
@@ -85,6 +85,7 @@ class InventoryTransactionService {
           gst.gst_type, true,
           invoiceData.notes || '', invoiceData.terms || '',
           invoiceData.created_by || null,
+          invoiceData.source_template_id || null, invoiceData.billing_period || null,
         ]
       );
 

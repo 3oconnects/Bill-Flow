@@ -30,5 +30,19 @@
       "src": "/(.*)",
       "dest": "frontend/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/recurring",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/aging",
+      "schedule": "15 2 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-views",
+      "schedule": "30 2 * * *"
+    }
   ]
 }

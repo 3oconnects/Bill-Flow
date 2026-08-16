@@ -49,6 +49,7 @@ const purchaseQuotationsRoutes = require('./purchaseQuotations');
 const purchaseOrdersRoutes     = require('./purchaseOrders');
 const blanketAgreementsRoutes  = require('./blanketAgreements');
 const purchaseRequestsRoutes   = require('./purchaseRequests');
+const cronRoutes               = require('./cron');
 
 // Core API endpoints
 router.use('/auth',            authRoutes);
@@ -77,5 +78,6 @@ router.use('/purchase-quotations', purchaseQuotationsRoutes);
 router.use('/purchase-orders',     purchaseOrdersRoutes);
 router.use('/blanket-agreements',  blanketAgreementsRoutes);
 router.use('/purchase-requests',   purchaseRequestsRoutes);
+router.use('/cron',                cronRoutes);
 
 module.exports = router;
