@@ -9,10 +9,17 @@ class PaymentAllocationService {
   static async createPaymentWithAllocation(orgId, customerId, amount, date, method, allocationDetails, opts) {
     allocationDetails = allocationDetails || {};
     opts = opts || {};
-    const reference   = opts.reference   || '';
-    const notes       = opts.notes       || '';
-    const currency    = opts.currency    || 'INR';
-    const created_by  = opts.created_by  || null;
+    const reference    = opts.reference   || opts.transaction_id || '';
+    const notes        = opts.notes       || '';
+    const currency     = opts.currency    || 'INR';
+    const created_by   = opts.created_by  || null;
+    const bank_name    = opts.bank_name   || null;
+    const cheque_number= opts.cheque_number || null;
+    const cheque_date  = opts.cheque_date || null;
+    const transaction_id = opts.transaction_id || reference || null;
+    const terms        = opts.terms       || null;
+    const payment_details = opts.payment_details || {};
+    const paymentStatus = opts.status     || 'completed';
 
     const client = await db.connect();
     try {
@@ -22,6 +29,15 @@ class PaymentAllocationService {
       const allocVals       = Object.values(allocationDetails);
       const allocatedAmount = allocVals.reduce(function(s,a){ return s + (a.amount||0); }, 0);
       const unappliedAmount = amount - allocatedAmount;
+
+      // Auto-generate receipt_number if omitted
+      let receipt_number = opts.receipt_number;
+      if (!receipt_number) {
+        const countRes = await client.query('SELECT COUNT(*) FROM payments WHERE org_id = $1', [orgId]);
+        const seq = parseInt((countRes.rows[0] && countRes.rows[0].count) || 0, 10) + 1;
+        const year = new Date().getFullYear();
+        receipt_number = `RCP-${year}-${seq.toString().padStart(4, '0')}`;
+      }
 
       // Resolve customer_id from first invoice if not supplied
       let resolvedCustomerId = customerId;
@@ -34,10 +50,19 @@ class PaymentAllocationService {
         if (r.rowCount > 0) resolvedCustomerId = r.rows[0].customer_id;
       }
 
+      // Link single-invoice payments directly so invoice views can list their receipts.
+      const allocInvoiceIds = Object.keys(allocationDetails);
+      const linkedInvoiceId = allocInvoiceIds.length === 1 ? allocInvoiceIds[0] : null;
+
       await client.query(
-        'INSERT INTO payments (id, org_id, customer_id, amount, allocated_amount, unapplied_amount, payment_date, method, currency, reference, notes, status, created_by, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW())',
-        [paymentId, orgId, resolvedCustomerId, amount, allocatedAmount,
-         unappliedAmount, date, method, currency, reference, notes, 'completed', created_by]
+        `INSERT INTO payments (
+           id, org_id, customer_id, invoice_id, amount, allocated_amount, unapplied_amount, date, payment_date,
+           method, currency, reference, notes, status, created_by, receipt_number, bank_name,
+           cheque_number, cheque_date, transaction_id, terms, payment_details, created_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,NOW())`,
+        [paymentId, orgId, resolvedCustomerId, linkedInvoiceId, amount, allocatedAmount, unappliedAmount, date, method,
+         currency, reference, notes, paymentStatus, created_by, receipt_number, bank_name,
+         cheque_number, cheque_date, transaction_id, terms, JSON.stringify(payment_details)]
       );
 
       for (const invoiceId of Object.keys(allocationDetails)) {
@@ -67,8 +92,8 @@ class PaymentAllocationService {
         );
 
         await client.query(
-          'INSERT INTO payment_allocations (id, payment_id, invoice_id, amount, notes, created_at) VALUES ($1,$2,$3,$4,$5,NOW())',
-          [uuid(), paymentId, invoiceId, allocAmount, allocNotes]
+          'INSERT INTO payment_allocations (id, org_id, payment_id, invoice_id, amount, notes, created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
+          [uuid(), orgId, paymentId, invoiceId, allocAmount, allocNotes]
         );
       }
 
@@ -109,7 +134,7 @@ class PaymentAllocationService {
         `SELECT id, COALESCE(unapplied_amount,0) AS unapplied, COALESCE(allocated_amount,0) AS allocated
            FROM payments
           WHERE org_id=$1 AND customer_id=$2 AND deleted_at IS NULL
-            AND COALESCE(status,'completed') <> 'reversed'
+            AND COALESCE(status,'completed') NOT IN ('reversed','cancelled')
             AND COALESCE(unapplied_amount,0) > 0
           ORDER BY payment_date ASC, created_at ASC
           FOR UPDATE`,
@@ -153,8 +178,8 @@ class PaymentAllocationService {
             [newPaid, inv.id]
           );
           await client.query(
-            'INSERT INTO payment_allocations (id, payment_id, invoice_id, amount, notes, created_at) VALUES ($1,$2,$3,$4,$5,NOW())',
-            [uuid(), pay.id, inv.id, alloc, 'Advance balance applied']
+            'INSERT INTO payment_allocations (id, org_id, payment_id, invoice_id, amount, notes, created_at) VALUES ($1,$2,$3,$4,$5,$6,NOW())',
+            [uuid(), orgId, pay.id, inv.id, alloc, 'Advance balance applied']
           );
 
           inv.paid = newPaid;
@@ -244,9 +269,72 @@ class PaymentAllocationService {
     }
   }
 
+  static async cancelPayment(orgId, paymentId) {
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      const payment = await client.query(
+        'SELECT customer_id, amount, status FROM payments WHERE id=$1 AND org_id=$2 AND deleted_at IS NULL FOR UPDATE',
+        [paymentId, orgId]
+      );
+      if (!payment.rowCount) throw new Error('Payment not found');
+      if (['cancelled', 'reversed'].includes(payment.rows[0].status)) {
+        throw new Error('Payment is already ' + payment.rows[0].status);
+      }
+      const customer_id = payment.rows[0].customer_id;
+      const amount      = payment.rows[0].amount;
+
+      const allocations = await client.query(
+        'SELECT invoice_id, amount FROM payment_allocations WHERE payment_id=$1',
+        [paymentId]
+      );
+
+      for (const alloc of allocations.rows) {
+        const invoice = await client.query(
+          'SELECT paid_amount, total, COALESCE(credited_amount,0) AS credited FROM invoices WHERE id=$1 FOR UPDATE',
+          [alloc.invoice_id]
+        );
+        if (!invoice.rowCount) continue;
+        const newPaidAmount = Math.max(0, parseFloat(invoice.rows[0].paid_amount) - parseFloat(alloc.amount));
+        await client.query(
+          `UPDATE invoices SET paid_amount=$1,
+             status = CASE
+               WHEN ($1 + COALESCE(credited_amount,0)) >= total THEN 'paid'
+               WHEN $1 > 0 THEN 'partially_paid'
+               ELSE 'sent' END,
+             updated_at=NOW() WHERE id=$2`,
+          [newPaidAmount, alloc.invoice_id]
+        );
+        await client.query(
+          'DELETE FROM payment_allocations WHERE payment_id=$1 AND invoice_id=$2',
+          [paymentId, alloc.invoice_id]
+        );
+      }
+
+      // Mark payment status as cancelled (preserve audit record)
+      await client.query(
+        "UPDATE payments SET status='cancelled', allocated_amount=0, unapplied_amount=0, updated_at=NOW() WHERE id=$1",
+        [paymentId]
+      );
+
+      if (customer_id) {
+        await CustomerBalance.recompute(client, orgId, customer_id);
+      }
+
+      await client.query('COMMIT');
+      return { cancelled: true, amount: amount };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   static async getPaymentSummary(orgId, customerId) {
     const result = await db.query(
-      "SELECT COUNT(DISTINCT p.id) AS total_payments, COALESCE(SUM(p.amount),0) AS total_paid, COALESCE(SUM(p.unapplied_amount),0) AS total_unapplied, MAX(p.payment_date) AS last_payment_date FROM payments p WHERE p.org_id=$1 AND p.customer_id=$2 AND p.deleted_at IS NULL",
+      "SELECT COUNT(DISTINCT p.id) AS total_payments, COALESCE(SUM(p.amount),0) AS total_paid, COALESCE(SUM(p.unapplied_amount),0) AS total_unapplied, MAX(p.payment_date) AS last_payment_date FROM payments p WHERE p.org_id=$1 AND p.customer_id=$2 AND p.deleted_at IS NULL AND COALESCE(p.status,'completed') <> 'cancelled'",
       [orgId, customerId]
     );
     return result.rows[0];

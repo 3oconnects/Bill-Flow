@@ -12,9 +12,10 @@ const DU = ['days', 'months', 'years']
 const W_TYPES = [['none','None'],['manufacturer','Manufacturer'],['seller','Seller']]
 const G_TYPES = [['none','None'],['replacement','Replacement'],['repair','Repair'],['refund','Refund']]
 
-export default function ProductForm({ initial, onSuccess, onCancel }) {
+export default function ProductForm({ initial, prefill, onSuccess, onCancel }) {
+  // `prefill` comes from the barcode scanner's online lookup — only applied when adding new
   const { register, handleSubmit, watch, setValue, control, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: initial || DEFAULTS,
+    defaultValues: initial || { ...DEFAULTS, ...prefill },
   })
   const { generate: genSku, loading: skuLoading } = useSkuGen(() => watch('brand'), setValue)
   const mutation = useMutation({

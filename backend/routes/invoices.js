@@ -50,7 +50,14 @@ router.get('/:id', requireAuth, async (req, res) => {
       'SELECT * FROM invoice_items WHERE invoice_id = $1 AND deleted_at IS NULL ORDER BY sort_order',
       [req.params.id]
     );
-    sendSuccess(res, { ...rows[0], items: items.rows });
+    const payments = await db.query(
+      `SELECT * FROM payments
+        WHERE invoice_id = $1 AND org_id = $2 AND deleted_at IS NULL
+          AND COALESCE(status,'completed') NOT IN ('cancelled','reversed')
+        ORDER BY date DESC, created_at DESC`,
+      [req.params.id, req.orgId]
+    );
+    sendSuccess(res, { ...rows[0], items: items.rows, payments: payments.rows });
   } catch (err) {
     console.error('Get invoice error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);

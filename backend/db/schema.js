@@ -95,6 +95,15 @@ async function reconcileSalesDrift() {
     `ALTER TABLE payments ADD COLUMN IF NOT EXISTS status            TEXT DEFAULT 'completed'`,
     // backfill payment_date from legacy `date` column where missing
     `UPDATE payments SET payment_date = date WHERE payment_date IS NULL AND date IS NOT NULL`,
+    // payments — receipt details (mirrors migration 010_receipt_enhancements.sql)
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS receipt_number    VARCHAR(100)`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS bank_name         VARCHAR(150)`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS cheque_number     VARCHAR(100)`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS cheque_date       DATE`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_id    VARCHAR(150)`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS terms             TEXT`,
+    `ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_details   JSONB DEFAULT '{}'::jsonb`,
+    `CREATE INDEX IF NOT EXISTS idx_payments_org_receipt_number ON payments(org_id, receipt_number)`,
     // customers — payment tracking
     `ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_payment_date TIMESTAMP`,
     // payment_allocations — referenced by paymentAllocationService
@@ -125,7 +134,7 @@ async function reconcileSalesDrift() {
       FROM payments p
      WHERE p.deleted_at IS NULL
        AND p.invoice_id IS NOT NULL
-       AND COALESCE(p.status,'completed') <> 'reversed'
+       AND COALESCE(p.status,'completed') NOT IN ('reversed','cancelled')
        AND NOT EXISTS (SELECT 1 FROM payment_allocations pa WHERE pa.payment_id = p.id)
        AND ROUND(COALESCE(p.allocated_amount,0)+COALESCE(p.unapplied_amount,0),2) <> ROUND(p.amount,2)
   `).catch((e) => console.warn('[reconcileSalesDrift:legacy_alloc_backfill]', e.message));
@@ -146,6 +155,7 @@ async function reconcileSalesDrift() {
     UPDATE payments
        SET unapplied_amount = amount, allocated_amount = 0, updated_at = NOW()
      WHERE deleted_at IS NULL
+       AND COALESCE(status,'completed') <> 'cancelled'
        AND NOT EXISTS (SELECT 1 FROM payment_allocations pa WHERE pa.payment_id = payments.id)
        AND ROUND(COALESCE(allocated_amount,0)+COALESCE(unapplied_amount,0),2) <> ROUND(amount,2)
   `).catch((e) => console.warn('[reconcileSalesDrift:payment_split_advance]', e.message));

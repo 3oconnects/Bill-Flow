@@ -124,7 +124,10 @@ export const invoicesApi = {
 // ── Payments ─────────────────────────────────────
 export const paymentsApi = {
   list:   ()         => asList(api.get('/payments')),
+  get:    (id)       => api.get(`/payments/${id}`),
   create: (data)     => api.post('/payments', data),
+  update: (id, data) => api.put(`/payments/${id}`, data),
+  cancel: (id)       => api.post(`/payments/${id}/cancel`),
   remove: (id)       => api.delete(`/payments/${id}`),
 }
 
