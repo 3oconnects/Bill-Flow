@@ -11,6 +11,7 @@ import Modal from '@/components/Modal'
 import ProductForm from './ProductForm'
 import BulkUpload from './BulkUpload'
 import CategoryManager from './CategoryManager'
+import ProductScanner from './components/ProductScanner'
 import { confirmAction } from '@/store/confirmStore'
 
 export default function ProductsPage() {
@@ -21,10 +22,10 @@ export default function ProductsPage() {
   const [category, setCategory] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [formPrefill, setFormPrefill] = useState(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [view, setView] = useState('list')
   const [scanOpen, setScanOpen] = useState(false)
-  const [scanInput, setScanInput] = useState('')
 
   const [catManagerOpen, setCatManagerOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -52,7 +53,7 @@ export default function ProductsPage() {
         </button>
         <button className="btn btn-primary"
           style={{ borderRadius: 8, padding: '8px 18px', fontWeight: 600 }}
-          onClick={() => { setEditing(null); setFormOpen(true) }}>
+          onClick={() => { setEditing(null); setFormPrefill(null); setFormOpen(true) }}>
           <Plus size={15} /> Add Product
         </button>
       </div>
@@ -116,7 +117,7 @@ export default function ProductsPage() {
             borderRadius: 10, boxShadow: 'var(--shadow-md)', minWidth: 200, overflow: 'hidden',
           }}>
             {[
-              { icon: Scan,     label: 'Scan Product',     onClick: () => { setScanInput(''); setScanOpen(true) } },
+              { icon: Scan,     label: 'Scan Product',     onClick: () => setScanOpen(true) },
               { icon: Download, label: 'Export CSV',        onClick: handleExport },
               { icon: Tag,      label: 'Manage Categories', onClick: () => setCatManagerOpen(true) },
             ].map(item => (
@@ -214,7 +215,7 @@ export default function ProductsPage() {
         {filtered.length === 0 ? (
           <EmptyState icon={<Package size={48} />} title="No products yet"
             description="Add your first product to start building your inventory"
-            action={<button className="btn btn-primary" onClick={() => { setEditing(null); setFormOpen(true) }}><Plus size={15} /> Add Product</button>} />
+            action={<button className="btn btn-primary" onClick={() => { setEditing(null); setFormPrefill(null); setFormOpen(true) }}><Plus size={15} /> Add Product</button>} />
         ) : view === 'list' ? (
           <div className="table-wrap">
             <table>
@@ -256,7 +257,10 @@ export default function ProductsPage() {
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="topbar-icon-btn" title="Edit" onClick={() => { setEditing(p); setFormOpen(true) }}>
+                          <button className="topbar-icon-btn" title="View" onClick={() => navigate(`/products/${p.id}`)}>
+                            <Eye size={14} />
+                          </button>
+                          <button className="topbar-icon-btn" title="Edit" onClick={() => { setEditing(p); setFormPrefill(null); setFormOpen(true) }}>
                             <Edit2 size={14} />
                           </button>
                           <button className="topbar-icon-btn" title="Clone" onClick={() => cloneMut.mutate(p.id)}>
@@ -303,7 +307,8 @@ export default function ProductsPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, borderTop: '1px solid var(--c-border)', paddingTop: 10 }}>
-                    <button className="topbar-icon-btn" title="Edit" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setEditing(p); setFormOpen(true) }}><Edit2 size={13} /></button>
+                    <button className="topbar-icon-btn" title="View" style={{ flex: 1, justifyContent: 'center' }} onClick={() => navigate(`/products/${p.id}`)}><Eye size={13} /></button>
+                    <button className="topbar-icon-btn" title="Edit" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setEditing(p); setFormPrefill(null); setFormOpen(true) }}><Edit2 size={13} /></button>
                     <button className="topbar-icon-btn" title="Clone" style={{ flex: 1, justifyContent: 'center' }} onClick={() => cloneMut.mutate(p.id)}><Copy size={13} /></button>
                     <button className="topbar-icon-btn" title="Delete" style={{ flex: 1, justifyContent: 'center', color: 'var(--c-danger)' }} onClick={() => confirmAction(`Delete "${p.name}"?`, () => deleteMut.mutate(p.id))}><Trash2 size={13} /></button>
                   </div>
@@ -315,11 +320,12 @@ export default function ProductsPage() {
       </div>
 
       {formOpen && (
-        <Modal title={editing ? 'Edit Product' : 'New Product'} onClose={() => setFormOpen(false)} size="lg">
+        <Modal title={editing ? 'Edit Product' : 'New Product'} onClose={() => { setFormOpen(false); setFormPrefill(null) }} size="lg">
           <ProductForm
             initial={editing}
-            onSuccess={() => { setFormOpen(false); qc.invalidateQueries(['products']); toast.success(editing ? 'Product updated' : 'Product created') }}
-            onCancel={() => setFormOpen(false)}
+            prefill={formPrefill}
+            onSuccess={() => { setFormOpen(false); setFormPrefill(null); qc.invalidateQueries(['products']); toast.success(editing ? 'Product updated' : 'Product created') }}
+            onCancel={() => { setFormOpen(false); setFormPrefill(null) }}
           />
         </Modal>
       )}
@@ -363,63 +369,14 @@ export default function ProductsPage() {
       )}
 
       {scanOpen && (
-        <Modal title="" onClose={() => setScanOpen(false)} size="md">
-          <div className="scanner-modal" style={{ padding: '0 8px 8px' }}>
-            <div className="scanner-header" style={{ display: 'flex', gap: 16, marginBottom: 24, alignItems: 'center' }}>
-              <div className="scanner-icon-wrap" style={{ width: 44, height: 44, background: 'var(--c-primary-lt)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--c-primary)', flexShrink: 0 }}>
-                <Scan size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>Product Barcode Scanner</div>
-                <div style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 2 }}>Scan the item to view details or add to inventory</div>
-              </div>
-            </div>
-
-            <div className="scanner-viewport" style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: 12, marginBottom: 16, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                Camera Viewport Placeholder
-              </div>
-              <div className="scanner-guide" style={{ position: 'absolute', top: '20%', left: '20%', right: '20%', bottom: '20%', border: '2px dashed rgba(255,255,255,0.5)', borderRadius: 8 }}></div>
-            </div>
-
-            <button className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', borderStyle: 'dashed', height: 48, marginBottom: 24 }}>
-              <UploadCloud size={16} /> Upload Barcode Image
-            </button>
-
-            <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>Or enter SKU manually</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div className="search-wrap" style={{ flex: 1 }}>
-                  <input 
-                    className="form-input" 
-                    placeholder="e.g. SKU-1002" 
-                    value={scanInput} 
-                    onChange={e => setScanInput(e.target.value)} 
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const match = products.find(p => p.sku === scanInput)
-                        if (match) {
-                          setScanOpen(false)
-                          navigate(`/products/${match.id}`)
-                        } else {
-                          toast.error('Product not found.')
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <button className="btn btn-primary" style={{ padding: '0 24px' }} onClick={() => {
-                  const match = products.find(p => p.sku === scanInput)
-                  if (match) {
-                    setScanOpen(false)
-                    navigate(`/products/${match.id}`)
-                  } else {
-                    toast.error('Product not found.')
-                  }
-                }}>Search</button>
-              </div>
-            </div>
-          </div>
+        <Modal title="Product Barcode Scanner" onClose={() => setScanOpen(false)} size="md">
+          <ProductScanner
+            products={products}
+            onViewProduct={(id) => { setScanOpen(false); navigate(`/products/${id}`) }}
+            onEditProduct={(p) => { setScanOpen(false); setEditing(p); setFormPrefill(null); setFormOpen(true) }}
+            onAddNewWithSku={(sku) => { setScanOpen(false); setEditing(null); setFormPrefill({ sku }); setFormOpen(true) }}
+            onAddNewWithData={(data) => { setScanOpen(false); setEditing(null); setFormPrefill(data); setFormOpen(true) }}
+          />
         </Modal>
       )}
     </div>

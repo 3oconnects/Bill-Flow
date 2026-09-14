@@ -495,8 +495,91 @@ html.dark {
 .page-header-left h1 { font-size: 24px; font-weight: 800; color: var(--c-text); letter-spacing: -0.5px; }
 .page-header-left p { font-size: 13px; color: var(--c-text3); margin-top: 2px; }
 
-/* ── STATS GRID (OLD REPLACED BY KPI-GRID) ────── */
-.inv-stats-grid { display: none; }
+/* ── INVOICE PAGE — STATS CARDS ──────────────── */
+.inv-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+@media (max-width: 900px) { .inv-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .inv-stats-grid { grid-template-columns: 1fr 1fr; } }
+.inv-stat-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius-lg); box-shadow: var(--shadow); transition: box-shadow .15s; }
+.inv-stat-card:hover { box-shadow: var(--shadow-md); }
+.inv-stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.inv-stat-icon svg { width: 18px; height: 18px; }
+.inv-stat-icon--blue   { background: var(--c-blue-lt);   color: var(--c-primary); }
+.inv-stat-icon--green  { background: var(--c-green-lt);  color: var(--c-green); }
+.inv-stat-icon--orange { background: var(--c-orange-lt); color: var(--c-orange); }
+.inv-stat-icon--red    { background: var(--c-red-lt);    color: var(--c-red); }
+.inv-stat-body { display: flex; flex-direction: column; }
+.inv-stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--c-text3); margin-bottom: 3px; }
+.inv-stat-row { display: flex; align-items: baseline; gap: 5px; }
+.inv-stat-value { font-size: 17px; font-weight: 800; color: var(--c-text); letter-spacing: -.3px; line-height: 1; }
+.inv-stat-sub { font-size: 9px; font-weight: 600; color: var(--c-text3); text-transform: uppercase; letter-spacing: .05em; }
+
+/* ── INVOICE PAGE — QUICK SCANNER BANNER (completions) ── */
+.inv-quick-pos-glow { position: absolute; top: -60px; right: -60px; width: 200px; height: 200px; background: rgba(255,255,255,.06); border-radius: 50%; pointer-events: none; }
+.inv-quick-pos-left { display: flex; align-items: center; gap: 14px; z-index: 1; }
+.inv-quick-pos-icon { width: 46px; height: 46px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+.inv-quick-pos-title { color: #fff; font-weight: 700; font-size: 15px; line-height: 1.2; }
+.inv-quick-pos-sub { color: rgba(200,220,255,.75); font-size: 11.5px; margin-top: 2px; font-weight: 500; }
+.inv-quick-pos-actions { display: flex; gap: 10px; align-items: center; z-index: 1; flex-shrink: 0; }
+.inv-qpos-btn-scan { background: #1a6be8; color: #fff; border: none; padding: 9px 18px; border-radius: 10px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: background .15s, transform .1s; box-shadow: 0 4px 12px rgba(26,107,232,.35); }
+.inv-qpos-btn-scan:hover { background: #1559cc; transform: scale(1.02); }
+.inv-qpos-btn-new { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.18); padding: 9px 16px; border-radius: 10px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: background .15s; }
+.inv-qpos-btn-new:hover { background: rgba(255,255,255,.2); }
+.inv-qpos-btn-export { background: rgba(255,255,255,.08); color: rgba(200,220,255,.9); border: 1px solid rgba(255,255,255,.12); padding: 9px 14px; border-radius: 10px; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: background .15s; }
+.inv-qpos-btn-export:hover { background: rgba(255,255,255,.14); }
+@media (max-width: 768px) {
+  .inv-quick-pos-banner { flex-direction: column; align-items: flex-start; }
+  .inv-quick-pos-actions { flex-wrap: wrap; width: 100%; }
+  .inv-qpos-btn-scan, .inv-qpos-btn-new, .inv-qpos-btn-export { flex: 1; justify-content: center; }
+}
+
+/* ── INVOICE PAGE — FILTER / SEARCH BAR ──────── */
+.inv-filter-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.inv-filter-left { flex-shrink: 0; flex: 1; min-width: 200px; }
+.inv-filter-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.inv-search-wrap { position: relative; display: flex; align-items: center; }
+.inv-search-icon { position: absolute; left: 12px; width: 15px; height: 15px; color: var(--c-text3); pointer-events: none; transition: color .15s; }
+.inv-search-wrap:focus-within .inv-search-icon { color: var(--c-primary); }
+.inv-search-input { width: 100%; max-width: 320px; background: var(--c-surface); border: 1.5px solid var(--c-border2); border-radius: 10px; padding: 8px 14px 8px 36px; font-size: 13px; font-weight: 500; color: var(--c-text); outline: none; transition: border-color .15s, box-shadow .15s; }
+.inv-search-input:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(26,107,232,.10); }
+.inv-search-input::placeholder { color: var(--c-text3); font-size: 12px; }
+@media (max-width: 700px) {
+  .inv-filter-bar { flex-direction: column; align-items: stretch; }
+  .inv-search-input { max-width: none; }
+  .inv-filter-right { justify-content: flex-start; overflow-x: auto; }
+}
+
+/* ── INVOICE PAGE — VIEW TOGGLE (Table / Card) ── */
+.view-toggle-bar { display: flex; align-items: center; gap: 6px; }
+.view-toggle-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid var(--c-border); background: var(--c-card); color: var(--c-text2); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.view-toggle-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.view-toggle-btn.active { background: var(--c-primary); color: #fff; border-color: var(--c-primary); }
+.view-toggle-btn svg { width: 16px; height: 16px; }
+
+/* ── INVOICE PAGE — CARD GRID VIEW ───────────── */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 4px; }
+.item-card { background: var(--c-card); border: 1.5px solid var(--c-border); border-radius: 14px; padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .18s, border-color .18s, transform .15s; position: relative; }
+.item-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,.08); border-color: var(--c-primary); transform: translateY(-2px); }
+.item-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.item-card-avatar { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 700; flex-shrink: 0; color: #fff; }
+.item-card-avatar.blue   { background: linear-gradient(135deg,#3b82f6,#1d4ed8); }
+.item-card-avatar.green  { background: linear-gradient(135deg,#22c55e,#15803d); }
+.item-card-avatar.purple { background: linear-gradient(135deg,#a855f7,#7e22ce); }
+.item-card-avatar.orange { background: linear-gradient(135deg,#f97316,#c2410c); }
+.item-card-avatar.teal   { background: linear-gradient(135deg,#14b8a6,#0f766e); }
+.item-card-title { font-weight: 700; font-size: 14.5px; color: var(--c-text); line-height: 1.3; cursor: pointer; }
+.item-card-sub   { font-size: 12px; color: var(--c-text2); margin-top: 1px; }
+.item-card-divider { border: none; border-top: 1px solid var(--c-border); margin: 0; }
+.item-card-fields { display: flex; flex-direction: column; gap: 6px; }
+.item-card-field { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; }
+.item-card-field-label { color: var(--c-text2); }
+.item-card-field-val   { color: var(--c-text); font-weight: 500; text-align: right; max-width: 60%; word-break: break-word; }
+.item-card-amount { font-size: 18px; font-weight: 800; color: var(--c-text); }
+.item-card-actions { display: flex; gap: 6px; justify-content: flex-end; }
+@media (max-width: 600px) { .card-grid { grid-template-columns: 1fr; } }
+
+/* ── INVOICE NUMBER LINK (table view) ────────── */
+.inv-num-link { color: var(--c-primary); font-weight: 600; cursor: pointer; }
+.inv-num-link:hover { text-decoration: underline; }
  
 /* ── RESPONSIVE DESIGN ────────────────────────── */
 @media (max-width: 1024px) {
@@ -691,3 +774,60 @@ html.dark {
 }
 
 @keyframes bf-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── PRODUCT DETAIL PAGE ─────────────────────────────────────────────────── */
+/* Referenced by ProductDetail.jsx and features/products/detail/* */
+.pd-header { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.pd-header-info { flex: 1 1 240px; min-width: 0; }
+.pd-header-titlerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pd-header-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+.pd-header-actions .btn { white-space: nowrap; }
+
+.pd-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pd-stat-card { border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.pd-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-stat-val { font-size: 21px; font-weight: 800; line-height: 1.15; margin-bottom: 5px; overflow-wrap: break-word; }
+.pd-stat-sub { font-size: 11px; color: var(--c-text2); }
+
+.pd-tabbar { border-bottom: 1px solid var(--border); }
+.pd-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.pd-tabs::-webkit-scrollbar { display: none; }
+.pd-tab-btn { flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 9px 13px; font-size: 12px; background: transparent; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; color: var(--text-2); font-weight: 500; white-space: nowrap; }
+.pd-tab-btn.active { color: var(--c-primary); font-weight: 700; border-bottom-color: var(--c-primary); }
+
+.pd-body { display: flex; flex-direction: column; gap: 16px; }
+
+.pd-kv-grid { display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 28px; }
+.pd-kv-row { display: grid; grid-template-columns: 120px 1fr; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.pd-kv-row:last-child { border-bottom: none; }
+.pd-kv-row .pd-kv-val { font-weight: 600; font-size: 13px; overflow-wrap: break-word; min-width: 0; }
+
+.pd-sidecard-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.pd-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
+@media (max-width: 1080px) {
+  .pd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .pd-kv-grid { grid-template-columns: 1fr; }
+  .pd-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .pd-stats { grid-template-columns: 1fr; }
+  .pd-header-actions { width: 100%; margin-left: 0; }
+  .pd-header-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .pd-kv-row { grid-template-columns: 100px 1fr; }
+}
+
+/* Product Knowledge card (right sidebar) */
+.pdk-summary { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+.pdk-summary-right { text-align: right; min-width: 0; }
+.pdk-eyebrow { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.pdk-row { display: grid; grid-template-columns: 92px 1fr; align-items: center; column-gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+.pdk-row:last-child { border-bottom: none; }
+.pdk-row-label { display: flex; align-items: center; gap: 6px; color: #94a3b8; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdk-row-label svg { flex-shrink: 0; }
+.pdk-row-val { font-weight: 600; color: #1e293b; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  .pdk-row { grid-template-columns: 76px 1fr; }
+}

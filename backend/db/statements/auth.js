@@ -15,6 +15,7 @@ module.exports = {
   updateUser: db.prepare(`UPDATE users SET name=?, email=?, role=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?`),
   deleteUser: db.prepare(`UPDATE users SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=? AND role != 'owner'`),
   updatePassword: db.prepare(`UPDATE users SET password_hash=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`),
+  updateUserPassword: db.prepare(`UPDATE users SET password_hash=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`),
   
   setVerificationToken: db.prepare(`UPDATE users SET email_verify_token=?, email_verify_expires=? WHERE id=?`),
   getUserByVerificationToken: db.prepare(`SELECT id, email, name FROM users WHERE email_verify_token=? AND email_verify_expires > CURRENT_TIMESTAMP AND deleted_at IS NULL`),

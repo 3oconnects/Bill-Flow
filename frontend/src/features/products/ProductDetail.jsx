@@ -16,6 +16,7 @@ import PriceListsTab from './detail/PriceListsTab'
 import StockHistoryTab from './detail/StockHistoryTab'
 import SalesHistoryTab from './detail/SalesHistoryTab'
 import ProductKnowledgeCard from './detail/ProductKnowledgeCard'
+import ProductCodes from './detail/ProductCodes'
 import { confirmAction } from '@/store/confirmStore'
 
 export default function ProductDetail() {
@@ -61,48 +62,48 @@ export default function ProductDetail() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="pd-header">
         <button className="topbar-icon-btn" onClick={() => navigate('/products')}><ArrowLeft size={17} /></button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h1 style={{ fontSize: 19, fontWeight: 700, margin: 0 }}>{p.name}</h1>
-            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: p.is_active ? '#ecfdf5' : '#f3f4f6', color: p.is_active ? '#10b981' : '#6b7280' }}>{p.is_active ? 'Active' : 'Inactive'}</span>
+        <div className="pd-header-info">
+          <div className="pd-header-titlerow">
+            <h1 style={{ fontSize: 19, fontWeight: 700, margin: 0, overflowWrap: 'break-word' }}>{p.name}</h1>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap', background: p.is_active ? '#ecfdf5' : '#f3f4f6', color: p.is_active ? '#10b981' : '#6b7280' }}>{p.is_active ? 'Active' : 'Inactive'}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
             SKU: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-2)' }}>{p.sku || '—'}</span>
             {p.brand && ` · ${p.brand}`}{p.model_number && ` · ${p.model_number}`}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 7 }}>
+        <div className="pd-header-actions">
           <button className="btn btn-ghost btn-sm" onClick={printLabel}><Printer size={13} /> Print Label</button>
           <button className="btn btn-ghost btn-sm" onClick={() => confirmAction('Clone this product?', () => cloneMut.mutate())}><Copy size={13} /> Clone</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setStockOpen(true)}><Package size={13} /> Adjust Stock</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setAnalysisOpen(true)} style={{ background: 'linear-gradient(135deg,#6366f1,#7c3aed)', color: '#fff', border: 'none' }}><BarChart2 size={13} /> Business Report</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setAnalysisOpen(true)} style={{ background: 'linear-gradient(135deg,var(--c-primary),#4d9cf0)', color: '#fff', border: 'none' }}><BarChart2 size={13} /> Business Report</button>
           <button className="btn btn-primary btn-sm" onClick={() => setEditOpen(true)}><Edit2 size={13} /> Edit</button>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div className="pd-stats">
         {[
-          { label: 'Selling Price',  val: fmt.currency(p.unit_price),            sub: 'Customer price',                         color: '#6366f1', bg: '#eef2ff' },
+          { label: 'Selling Price',  val: fmt.currency(p.unit_price),            sub: 'Customer price',                         color: 'var(--c-primary)', bg: 'var(--c-primary-lt)' },
           { label: 'Purchase Price', val: fmt.currency(p.purchase_price),         sub: 'Cost price',                             color: '#64748b', bg: 'var(--bg-2)' },
           { label: 'Gross Margin',   val: `${margin}%`,                           sub: `₹${fmt.number(p.unit_price - p.purchase_price)} profit/unit`, color: Number(margin) > 20 ? '#10b981' : '#f59e0b', bg: Number(margin) > 20 ? '#ecfdf5' : '#fffbeb' },
           { label: 'Stock',          val: `${fmt.number(p.stock_qty)} ${p.unit}`, sub: isLow ? `⚠ Below alert (${fmt.number(p.low_stock_alert)})` : `Alert at ${fmt.number(p.low_stock_alert)}`, color: isLow ? '#ef4444' : '#10b981', bg: isLow ? '#fef2f2' : '#ecfdf5' },
         ].map(k => (
-          <div key={k.label} style={{ background: k.bg, borderRadius: 12, padding: '14px 16px', border: `1px solid ${k.color}22` }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: k.color, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>{k.label}</div>
-            <div style={{ fontSize: 21, fontWeight: 800, color: k.color, lineHeight: 1, marginBottom: 5 }}>{k.val}</div>
-            <div style={{ fontSize: 11, color: '#64748b' }}>{k.sub}</div>
+          <div key={k.label} className="pd-stat-card" style={{ background: k.bg, border: `1px solid ${k.color}22` }}>
+            <div className="pd-stat-label" style={{ color: k.color }}>{k.label}</div>
+            <div className="pd-stat-val" style={{ color: k.color }}>{k.val}</div>
+            <div className="pd-stat-sub">{k.sub}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', gap: 2 }}>
+      <div className="pd-tabbar">
+        <div className="pd-tabs">
           {TABS.map(t => {
             const active = tab === t.id
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 13px', fontSize: 12, fontWeight: active ? 700 : 500, color: active ? 'var(--accent,#6366f1)' : 'var(--text-2)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: active ? '2px solid var(--accent,#6366f1)' : '2px solid transparent', marginBottom: -1, transition: 'all .15s' }}>
+              <button key={t.id} className={`pd-tab-btn${active ? ' active' : ''}`} onClick={() => setTab(t.id)}>
                 <t.icon size={12} />{t.label}
               </button>
             )
@@ -110,16 +111,16 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: WIDE.includes(tab) ? '1fr' : '1fr 290px', gap: 16, alignItems: 'start' }}>
+      <div className="pd-body">
         <div style={S.card}>
           {tab === 'info' && (
             <div>
               <div style={S.title}>Product Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 28 }}>
-                {[['Name',p.name],['Category',p.category],['Unit',p.unit],['HSN Code',p.hsn_code],['Brand',p.brand],['Model',p.model_number],['Tax Rate',`${p.tax_rate}%`],['Unique ID',p.unique_id]].filter(([,v])=>v).map(([l,v],i,a) => (
-                  <div key={l} style={S.row(i>=a.length-2)}>
+              <div className="pd-kv-grid">
+                {[['Name',p.name],['Category',p.category],['Unit',p.unit],['HSN Code',p.hsn_code],['Brand',p.brand],['Model',p.model_number],['Tax Rate',`${p.tax_rate}%`],['Unique ID',p.unique_id]].filter(([,v])=>v).map(([l,v]) => (
+                  <div key={l} className="pd-kv-row">
                     <span style={S.lbl}>{l}</span>
-                    <span style={{ ...S.val, fontFamily: ['HSN Code','Unique ID'].includes(l) ? 'monospace' : 'inherit' }}>{v}</span>
+                    <span className="pd-kv-val" style={{ fontFamily: ['HSN Code','Unique ID'].includes(l) ? 'monospace' : 'inherit' }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -130,15 +131,15 @@ export default function ProductDetail() {
           {tab === 'pricing' && (
             <div>
               <div style={S.title}>Pricing Overview</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 22 }}>
+              <div className="pd-grid-3" style={{ marginBottom: 22 }}>
                 {[
-                  { l: 'Selling Price',  v: fmt.currency(p.unit_price),               n: 'Customer-facing price', c: '#6366f1', bg: '#eef2ff' },
+                  { l: 'Selling Price',  v: fmt.currency(p.unit_price),               n: 'Customer-facing price', c: 'var(--c-primary)', bg: 'var(--c-primary-lt)' },
                   { l: 'Purchase Price', v: fmt.currency(p.purchase_price),            n: 'Cost from vendor',      c: '#64748b', bg: 'var(--bg-2)' },
                   { l: 'Gross Profit',   v: fmt.currency(p.unit_price-p.purchase_price), n: `Margin: ${margin}%`,  c: (p.unit_price-p.purchase_price)>=0?'#10b981':'#ef4444', bg: (p.unit_price-p.purchase_price)>=0?'#ecfdf5':'#fef2f2' },
                 ].map(k => (
-                  <div key={k.l} style={{ background: k.bg, borderRadius: 10, padding: '13px 15px', border: `1px solid ${k.c}22` }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: k.c, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>{k.l}</div>
-                    <div style={{ fontSize: 19, fontWeight: 800, color: k.c }}>{k.v}</div>
+                  <div key={k.l} style={{ background: k.bg, borderRadius: 10, padding: '13px 15px', border: `1px solid ${k.c}22`, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: k.c, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.l}</div>
+                    <div style={{ fontSize: 19, fontWeight: 800, color: k.c, overflowWrap: 'break-word' }}>{k.v}</div>
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{k.n}</div>
                   </div>
                 ))}
@@ -146,18 +147,18 @@ export default function ProductDetail() {
               <div style={S.title}>GST Breakdown (per unit)</div>
               <div style={{ background: 'var(--bg-2)', borderRadius: 10, padding: '4px 14px' }}>
                 {[['Tax Rate',`${p.tax_rate}%`],['Taxable Amount',fmt.currency(p.unit_price)],['GST Amount',fmt.currency(p.unit_price*(p.tax_rate/100))],['Total (incl. GST)',fmt.currency(p.unit_price*(1+p.tax_rate/100))]].map(([l,v],i,a) => (
-                  <div key={l} style={S.row(i===a.length-1)}><span style={S.lbl}>{l}</span><span style={S.val}>{v}</span></div>
+                  <div key={l} className="pd-kv-row" style={{ borderBottom: i===a.length-1 ? 'none' : '1px solid var(--border)' }}><span style={S.lbl}>{l}</span><span className="pd-kv-val">{v}</span></div>
                 ))}
               </div>
             </div>
           )}
 
           {tab === 'warranty' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+            <div className="pd-kv-grid">
               {[{title:'Warranty',rows:[['Type',p.warranty_type],['Duration',`${p.warranty_duration} ${p.warranty_unit}`],['Terms',p.warranty_terms]]},{title:'Guarantee',rows:[['Type',p.guarantee_type],['Duration',`${p.guarantee_duration} ${p.guarantee_unit}`],['Terms',p.guarantee_terms]]}].map(s => (
                 <div key={s.title}>
                   <div style={S.title}>{s.title}</div>
-                  {s.rows.map(([l,v],i,a) => <div key={l} style={S.row(i===a.length-1)}><span style={S.lbl}>{l}</span><span style={{ ...S.val, textTransform: 'capitalize' }}>{v||'None'}</span></div>)}
+                  {s.rows.map(([l,v],i,a) => <div key={l} className="pd-kv-row" style={{ borderBottom: i===a.length-1 ? 'none' : '1px solid var(--border)' }}><span style={S.lbl}>{l}</span><span className="pd-kv-val" style={{ textTransform: 'capitalize' }}>{v||'None'}</span></div>)}
                 </div>
               ))}
             </div>
@@ -175,7 +176,8 @@ export default function ProductDetail() {
               {linkedVendors.length === 0 ? (
                 <div style={S.empty}><Truck size={26} style={{ marginBottom: 8, opacity: 0.3 }} /><div style={{ fontWeight: 600, fontSize: 13 }}>No vendors linked yet</div></div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
                   <thead><tr>{['Vendor','Supply Price','Margin','Status',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
                   <tbody>
                     {linkedVendors.map((pv, i) => {
@@ -194,6 +196,7 @@ export default function ProductDetail() {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           )}
@@ -220,11 +223,11 @@ export default function ProductDetail() {
         </div>
 
         {!WIDE.includes(tab) && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="pd-sidecard-list">
             <div style={S.card}>
               <div style={S.title}>Inventory</div>
-              <div style={S.row(false)}><span style={S.lbl}>Current Stock</span><span style={{ ...S.val, color: isLow ? '#ef4444' : '#10b981' }}>{fmt.number(p.stock_qty)} {p.unit}</span></div>
-              <div style={S.row(true)}><span style={S.lbl}>Alert Threshold</span><span style={S.val}>{fmt.number(p.low_stock_alert)} {p.unit}</span></div>
+              <div className="pd-kv-row"><span style={S.lbl}>Current Stock</span><span className="pd-kv-val" style={{ color: isLow ? '#ef4444' : '#10b981' }}>{fmt.number(p.stock_qty)} {p.unit}</span></div>
+              <div className="pd-kv-row" style={{ borderBottom: 'none' }}><span style={S.lbl}>Alert Threshold</span><span className="pd-kv-val">{fmt.number(p.low_stock_alert)} {p.unit}</span></div>
               <div style={{ background: 'var(--bg-2)', borderRadius: 4, height: 6, margin: '12px 0' }}>
                 <div style={{ height: '100%', borderRadius: 4, transition: 'width .4s', width: `${Math.min(100, (p.stock_qty / Math.max(p.low_stock_alert * 3, 1)) * 100)}%`, background: isLow ? '#ef4444' : '#10b981' }} />
               </div>
@@ -235,9 +238,11 @@ export default function ProductDetail() {
             <div style={S.card}>
               <div style={S.title}>Quick Info</div>
               {[['HSN Code',p.hsn_code],['Tax Rate',`${p.tax_rate}%`],['Stock Value',fmt.currency(p.stock_qty*p.purchase_price)],['Retail Value',fmt.currency(p.stock_qty*p.unit_price)]].filter(([,v])=>v).map(([l,v],i,a) => (
-                <div key={l} style={S.row(i===a.length-1)}><span style={S.lbl}>{l}</span><span style={S.val}>{v}</span></div>
+                <div key={l} className="pd-kv-row" style={{ borderBottom: i===a.length-1 ? 'none' : '1px solid var(--border)' }}><span style={S.lbl}>{l}</span><span className="pd-kv-val">{v}</span></div>
               ))}
             </div>
+
+            <ProductCodes p={p} />
 
             <ProductKnowledgeCard p={p} />
           </div>
