@@ -28,9 +28,247 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Vendor Financial Summary
+router.get('/:id/summary', requireAuth, async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const orgId = req.orgId;
+
+    // AP Invoices (Bills) for this vendor
+    const { rows: invoiceRows } = await db.query(
+      `SELECT id, doc_no, status, total_amount, paid_amount, due_date, created_at
+         FROM ap_invoices
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL`,
+      [orgId, vendorId]
+    );
+
+    const now = new Date();
+    let totalBills = 0, totalPaid = 0, outstanding = 0, overdue = 0;
+    invoiceRows.forEach(inv => {
+      const total = Number(inv.total_amount || 0);
+      const paid  = Number(inv.paid_amount || 0);
+      const bal   = Math.max(0, total - paid);
+      totalBills += total;
+      totalPaid  += paid;
+      outstanding += bal;
+      if (bal > 0 && inv.due_date && new Date(inv.due_date) < now) {
+        overdue += bal;
+      }
+    });
+
+    // Vendor Payments
+    const { rows: payRows } = await db.query(
+      `SELECT SUM(amount) AS total_payments FROM vendor_payments
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL`,
+      [orgId, vendorId]
+    );
+
+    // Purchase Orders
+    const { rows: poRows } = await db.query(
+      `SELECT COUNT(*) AS total_pos, SUM(total) AS total_po_value
+         FROM purchase_orders
+        WHERE org_id=$1 AND vendor_id=$2`,
+      [orgId, vendorId]
+    ).catch(() => ({ rows: [{ total_pos: 0, total_po_value: 0 }] }));
+
+    // AP Credit Memos
+    const { rows: cmRows } = await db.query(
+      `SELECT COALESCE(SUM(total_amount),0) AS credit_balance
+         FROM ap_credit_memos
+        WHERE org_id=$1 AND vendor_id=$2 AND status NOT IN ('cancelled')
+          AND deleted_at IS NULL`,
+      [orgId, vendorId]
+    ).catch(() => ({ rows: [{ credit_balance: 0 }] }));
+
+    sendSuccess(res, {
+      total_bills:    totalBills,
+      total_paid:     totalPaid,
+      outstanding,
+      overdue,
+      total_payments: Number(payRows[0]?.total_payments || 0),
+      total_pos:      Number(poRows[0]?.total_pos || 0),
+      total_po_value: Number(poRows[0]?.total_po_value || 0),
+      credit_balance: Number(cmRows[0]?.credit_balance || 0),
+      bill_count:     invoiceRows.length,
+    });
+  } catch (err) {
+    console.error('Get vendor summary error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Vendor AP Invoices (Bills)
+router.get('/:id/bills', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, doc_no, status, total_amount, paid_amount, due_date,
+              created_at, vendor_name
+         FROM ap_invoices
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL
+        ORDER BY created_at DESC`,
+      [req.orgId, req.params.id]
+    );
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Get vendor bills error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Vendor Payments
+router.get('/:id/payments', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT vp.id, vp.amount, vp.date, vp.method, vp.reference,
+              vp.notes, vp.ap_invoice_id, vp.ap_invoice_no, vp.created_at
+         FROM vendor_payments vp
+        WHERE vp.org_id=$1 AND vp.vendor_id=$2 AND vp.deleted_at IS NULL
+        ORDER BY vp.date DESC, vp.created_at DESC`,
+      [req.orgId, req.params.id]
+    );
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Get vendor payments error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Vendor Purchase Orders
+router.get('/:id/purchase-orders', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, po_number, status, total, expected_delivery_date,
+              created_at, items, currency
+         FROM purchase_orders
+        WHERE org_id=$1 AND vendor_id=$2
+        ORDER BY created_at DESC`,
+      [req.orgId, req.params.id]
+    ).catch(() => ({ rows: [] }));
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Get vendor purchase orders error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Vendor Credit Memos
+router.get('/:id/credit-memos', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, doc_no, status, total_amount, applied_amount, created_at
+         FROM ap_credit_memos
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL
+        ORDER BY created_at DESC`,
+      [req.orgId, req.params.id]
+    ).catch(() => ({ rows: [] }));
+    sendSuccess(res, rows);
+  } catch (err) {
+    console.error('Get vendor credit memos error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Vendor Transactions (combined timeline)
+router.get('/:id/transactions', requireAuth, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const dateFilter = from && to ? `AND created_at BETWEEN '${from}' AND '${to}'` : '';
+
+    // Bills
+    const { rows: bills } = await db.query(
+      `SELECT id, doc_no AS ref, 'Bill' AS type, total_amount AS amount,
+              paid_amount, status, created_at AS date
+         FROM ap_invoices
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL ${dateFilter}`,
+      [req.orgId, req.params.id]
+    );
+
+    // Payments
+    const { rows: payments } = await db.query(
+      `SELECT id, ap_invoice_no AS ref, 'Payment' AS type, amount,
+              amount AS paid_amount, 'paid' AS status, date AS date
+         FROM vendor_payments
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL ${dateFilter}`,
+      [req.orgId, req.params.id]
+    );
+
+    // Combine and sort by date desc
+    const all = [...bills, ...payments].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    sendSuccess(res, all);
+  } catch (err) {
+    console.error('Get vendor transactions error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
+// Vendor Statement
+router.get('/:id/statement', requireAuth, async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let dateWhere = '';
+    const params = [req.orgId, req.params.id];
+
+    if (from && to) {
+      dateWhere = `AND t.date BETWEEN $3 AND $4`;
+      params.push(from, to);
+    }
+
+    // Combined bills + payments as statement rows
+    const { rows: billRows } = await db.query(
+      `SELECT created_at::date AS date, doc_no AS reference,
+              'Bill' AS transaction_type,
+              total_amount AS debit, 0 AS credit,
+              (total_amount - COALESCE(paid_amount,0)) AS balance,
+              status
+         FROM ap_invoices
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL
+        ORDER BY created_at ASC`,
+      [req.orgId, req.params.id]
+    );
+
+    const { rows: payRows } = await db.query(
+      `SELECT date, ap_invoice_no AS reference,
+              'Payment' AS transaction_type,
+              0 AS debit, amount AS credit, 0 AS balance, 'paid' AS status
+         FROM vendor_payments
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL
+        ORDER BY date ASC`,
+      [req.orgId, req.params.id]
+    );
+
+    // Merge and sort by date
+    const rows = [...billRows, ...payRows].sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+
+    // Calculate running balance
+    let running = 0;
+    const statement = rows.map(r => {
+      running += Number(r.debit || 0) - Number(r.credit || 0);
+      return { ...r, running_balance: running };
+    });
+
+    sendSuccess(res, statement);
+  } catch (err) {
+    console.error('Get vendor statement error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { name, email, phone, address, gstin, pan, bank_account, ifsc, notes, vendor_id, company_name, contact_person, street, city, state, pincode, country, bank_name, bank_branch, status } = req.body;
+    const {
+      name, email, phone, alternate_phone, website, address, gstin, pan,
+      bank_account, ifsc, notes, vendor_id, company_name, contact_person,
+      street, city, state, pincode, country, bank_name, bank_branch,
+      status, vendor_type, payment_terms, currency, credit_limit,
+      opening_balance, tax_treatment, registration_type,
+      shipping_address, shipping_city, shipping_state, shipping_country,
+      shipping_pincode, account_holder_name,
+    } = req.body;
     if (!name) return sendError(res, 'Name is required', 'VALIDATION_ERROR', 400);
     const id = uuid();
     await stmts.insertVendor.run(
@@ -42,7 +280,7 @@ router.post('/', requireAuth, async (req, res) => {
     sendSuccess(res, { id });
   } catch (err) {
     console.error('Create vendor error:', err);
-    if (err.code === '23505') { // unique violation
+    if (err.code === '23505') {
       if (err.constraint?.includes('email')) return sendError(res, 'A vendor with this email already exists', 'VALIDATION_ERROR', 400);
       if (err.constraint?.includes('phone')) return sendError(res, 'A vendor with this phone already exists', 'VALIDATION_ERROR', 400);
       return sendError(res, 'A vendor with this detail already exists', 'VALIDATION_ERROR', 400);
@@ -53,7 +291,11 @@ router.post('/', requireAuth, async (req, res) => {
 
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const { name, email, phone, address, gstin, pan, bank_account, ifsc, notes, vendor_id, company_name, contact_person, street, city, state, pincode, country, bank_name, bank_branch, status } = req.body;
+    const {
+      name, email, phone, address, gstin, pan, bank_account, ifsc, notes,
+      vendor_id, company_name, contact_person, street, city, state, pincode,
+      country, bank_name, bank_branch, status,
+    } = req.body;
     if (!name) return sendError(res, 'Name is required', 'VALIDATION_ERROR', 400);
     await stmts.updateVendor.run(
       name, company_name||'', contact_person||'', email||'', phone||'', address||'',
@@ -68,8 +310,42 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Deactivate vendor (soft)
+router.patch('/:id/status', requireAuth, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['active', 'inactive', 'blocked'].includes(status)) {
+      return sendError(res, 'Invalid status', 'VALIDATION_ERROR', 400);
+    }
+    await db.query(
+      `UPDATE vendors SET status=$1, updated_at=NOW() WHERE id=$2 AND org_id=$3`,
+      [status, req.params.id, req.orgId]
+    );
+    sendSuccess(res, null);
+  } catch (err) {
+    console.error('Update vendor status error:', err);
+    sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);
+  }
+});
+
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
+    // Check if vendor has transactions — if so, just deactivate
+    const { rows: txnCheck } = await db.query(
+      `SELECT COUNT(*) AS cnt FROM ap_invoices
+        WHERE org_id=$1 AND vendor_id=$2 AND deleted_at IS NULL`,
+      [req.orgId, req.params.id]
+    ).catch(() => ({ rows: [{ cnt: 0 }] }));
+
+    if (Number(txnCheck[0]?.cnt || 0) > 0) {
+      // Soft-deactivate instead of delete
+      await db.query(
+        `UPDATE vendors SET status='inactive', updated_at=NOW() WHERE id=$1 AND org_id=$2`,
+        [req.params.id, req.orgId]
+      );
+      return sendSuccess(res, { deactivated: true, message: 'Vendor has transactions — deactivated instead of deleted' });
+    }
+
     await stmts.deleteVendor.run(req.params.id, req.orgId);
     sendSuccess(res, null);
   } catch (err) {
@@ -84,7 +360,6 @@ router.post('/:id/documents', requireAuth, async (req, res) => {
     const { name, doc_type, file_data, file_name, file_size, mime_type, notes, file_url, storage_key } = req.body;
     if (!name || (!file_data && !file_url)) return sendError(res, 'Name and file data/url required', 'VALIDATION_ERROR', 400);
     const id = uuid();
-    // Support both legacy file_data (mapped to file_url) and new file_url/storage_key
     await stmts.insertVendorDoc.run(id, req.orgId, req.params.id, name, doc_type||'other', file_url || file_data, storage_key || '', file_name||'', file_size||0, mime_type||'', notes||'');
     sendSuccess(res, { id });
   } catch (err) {
@@ -104,7 +379,6 @@ router.delete('/:id/documents/:docId', requireAuth, async (req, res) => {
 });
 
 // ── Vendor ↔ Products links (product_vendors join table) ───────────────────
-// List products linked to a vendor with supply price + primary flag.
 router.get('/:id/products', requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -125,13 +399,11 @@ router.get('/:id/products', requireAuth, async (req, res) => {
   }
 });
 
-// Link a product to a vendor.
 router.post('/:id/products', requireAuth, async (req, res) => {
   try {
     const { product_id, supply_price, is_primary, notes } = req.body;
     if (!product_id) return sendError(res, 'product_id is required', 'VALIDATION_ERROR', 400);
 
-    // Reject duplicate active link for same (vendor, product) pair.
     const existing = await db.query(
       `SELECT id FROM product_vendors
         WHERE org_id=$1 AND vendor_id=$2 AND product_id=$3 AND deleted_at IS NULL`,
@@ -156,7 +428,6 @@ router.post('/:id/products', requireAuth, async (req, res) => {
   }
 });
 
-// Update supply price / primary flag for a vendor-product link.
 router.put('/:id/products/:pvId', requireAuth, async (req, res) => {
   try {
     const { supply_price, is_primary, notes } = req.body;
@@ -175,7 +446,6 @@ router.put('/:id/products/:pvId', requireAuth, async (req, res) => {
   }
 });
 
-// Unlink a product from a vendor.
 router.delete('/:id/products/:pvId', requireAuth, async (req, res) => {
   try {
     await db.query(

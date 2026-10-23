@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, CreditCard, FileText, TrendingUp, Search, Calendar, Landmark, Eye } from 'lucide-react'
+import { Plus, Trash2, CreditCard, FileText, TrendingUp, Search, Calendar, Landmark, Eye, CheckCircle2, Clock } from 'lucide-react'
 import { paymentsApi, invoicesApi } from '@/api'
 import { fmt, PAYMENT_METHODS } from '@/lib/utils'
 import { PageLoading, EmptyState, Spinner, Badge } from '@/components/ui'
@@ -10,7 +10,9 @@ import { useTopbarStore } from '@/store/topbarStore'
 import { confirmAction } from '@/store/confirmStore'
 import Modal from '@/components/Modal'
 import { useForm } from 'react-hook-form'
+import InvoicePreview from '@/features/invoices/InvoicePreview'
 
+// ─── Products Purchased (loaded from invoice) ───────────────────────────────
 function InvoiceItemsSection({ invoiceId }) {
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoice', invoiceId],
@@ -39,7 +41,6 @@ function InvoiceItemsSection({ invoiceId }) {
           background: i % 2 === 0 ? 'transparent' : 'var(--c-surface)',
           gap: 12,
         }}>
-          {/* Left: product info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--c-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {item.description || '—'}
@@ -65,7 +66,6 @@ function InvoiceItemsSection({ invoiceId }) {
               )}
             </div>
           </div>
-          {/* Right: line total */}
           <div style={{ fontWeight: 800, fontSize: 14, color: '#6366f1', whiteSpace: 'nowrap' }}>
             {fmt.currency(item.amount)}
           </div>
@@ -75,7 +75,139 @@ function InvoiceItemsSection({ invoiceId }) {
   )
 }
 
-function PaymentDetailModal({ paymentId, onClose }) {
+// ─── Transaction History Timeline ────────────────────────────────────────────
+// Shows EVERY payment recorded against the invoice, with running balance.
+function InvoiceTransactionHistory({ history, invoiceTotal, currentPaymentId }) {
+  if (!history || history.length === 0) return null
+
+  const METHOD_ICONS = {
+    cash: '💵', bank_transfer: '🏦', cheque: '📝', upi: '📱',
+    card: '💳', credit_card: '💳', neft: '🏦', rtgs: '🏦', imps: '🏦',
+    online: '🌐', razorpay: '🌐',
+  }
+  const methodIcon = (m) => METHOD_ICONS[m?.toLowerCase()] || '💰'
+
+  // Compute running paid total for each row
+  let running = 0
+  const rows = history.map((h) => {
+    running += Number(h.allocated_to_invoice || h.amount || 0)
+    return { ...h, runningPaid: running }
+  })
+
+  const totalPaid = running
+  const balance   = Math.max(0, Number(invoiceTotal || 0) - totalPaid)
+
+  return (
+    <div style={{ background: 'var(--c-surface2)', borderRadius: 10, border: '1px solid var(--c-border)', overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ padding: '9px 14px', background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          📋 Transaction History ({rows.length} payment{rows.length !== 1 ? 's' : ''})
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: balance <= 0.005 ? '#059669' : '#d97706' }}>
+          {balance <= 0.005 ? '✅ Fully Cleared' : `Balance: ${fmt.currency(balance)}`}
+        </span>
+      </div>
+
+      {/* Timeline */}
+      <div style={{ padding: '8px 0' }}>
+        {rows.map((h, i) => {
+          const isCurrent = h.id === currentPaymentId
+          const isCancelled = h.status === 'cancelled' || h.status === 'reversed'
+          const txnLabel = h.transaction_id || h.reference || ('TXN-' + h.id.replace(/-/g, '').slice(-8).toUpperCase())
+          const pct = invoiceTotal > 0 ? Math.min(100, Math.round((h.runningPaid / Number(invoiceTotal)) * 100)) : 100
+
+          return (
+            <div key={h.id} style={{
+              display: 'flex', gap: 12, padding: '10px 16px',
+              borderBottom: i < rows.length - 1 ? '1px solid var(--c-border)' : undefined,
+              background: isCurrent ? 'rgba(99,102,241,0.04)' : 'transparent',
+              opacity: isCancelled ? 0.5 : 1,
+            }}>
+              {/* Step marker */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: isCancelled ? '#fee2e2' : isCurrent ? '#ede9fe' : '#f0fdf4',
+                  border: `2px solid ${isCancelled ? '#fca5a5' : isCurrent ? '#a5b4fc' : '#6ee7b7'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+                }}>
+                  {isCancelled ? '✕' : methodIcon(h.method)}
+                </div>
+                {i < rows.length - 1 && (
+                  <div style={{ width: 2, flex: 1, minHeight: 8, background: '#e5e7eb', marginTop: 3 }} />
+                )}
+              </div>
+
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0, paddingBottom: i < rows.length - 1 ? 4 : 0 }}>
+                {/* Row 1: amount + date */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: 14, color: isCancelled ? '#9ca3af' : '#10b981' }}>
+                      {isCancelled ? '—' : '+' }{fmt.currency(h.allocated_to_invoice || h.amount)}
+                    </span>
+                    {isCurrent && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#6366f1', padding: '1px 7px', borderRadius: 10 }}>
+                        THIS PAYMENT
+                      </span>
+                    )}
+                    {isCancelled && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: '#fee2e2', color: '#ef4444', padding: '1px 7px', borderRadius: 10 }}>
+                        REVERSED
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--c-text3)', whiteSpace: 'nowrap' }}>
+                    {fmt.date(h.date)}
+                  </span>
+                </div>
+
+                {/* Row 2: method + txn ref */}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--c-text2)', textTransform: 'uppercase', fontWeight: 600 }}>
+                    {(h.method || 'payment').replace(/_/g, ' ')}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6366f1', background: '#ede9fe', padding: '1px 7px', borderRadius: 6, fontWeight: 700 }}>
+                    {txnLabel}
+                  </span>
+                </div>
+
+                {/* Row 3: mini progress bar showing running total */}
+                {invoiceTotal > 0 && !isCancelled && (
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ height: 5, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 3, width: `${pct}%`,
+                        background: pct >= 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#f59e0b,#d97706)',
+                        transition: 'width 0.4s ease',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--c-text3)', marginTop: 2 }}>
+                      Cumulative paid: <strong style={{ color: pct >= 100 ? '#059669' : '#d97706' }}>
+                        {fmt.currency(h.runningPaid)}
+                      </strong>
+                      {' / '}{fmt.currency(invoiceTotal)}
+                      {' '}({pct}%)
+                    </div>
+                  </div>
+                )}
+
+                {h.notes && (
+                  <div style={{ fontSize: 11, color: 'var(--c-text3)', fontStyle: 'italic', marginTop: 3 }}>
+                    📝 {h.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Payment Detail Modal ────────────────────────────────────────────────────
+function PaymentDetailModal({ paymentId, onClose, onViewInvoice }) {
   const { data: payment, isLoading } = useQuery({
     queryKey: ['payment', paymentId],
     queryFn: () => paymentsApi.get(paymentId),
@@ -114,20 +246,19 @@ function PaymentDetailModal({ paymentId, onClose }) {
         const allocatedAmt = Number(payment.allocated_amount || 0)
         const unappliedAmt = Number(payment.unapplied_amount ?? (totalAmt - allocatedAmt))
         const allocations  = payment.allocations || []
-        
-        // Modern payments use the allocation engine; fallback to legacy direct invoice join
-        const primaryAlloc = allocations.length === 1 ? allocations[0] : allocations.length > 0 ? allocations[0] : null
-        const invTotal     = Number(primaryAlloc?.invoice_total || payment.invoice_total || 0)
-        const invPaid      = Number(primaryAlloc?.invoice_paid_amount || payment.invoice_paid_amount || 0)
-        const invStatus    = primaryAlloc?.invoice_status || payment.invoice_status || 'unpaid'
-        const invBalance   = Math.max(0, invTotal - invPaid)
-        
-        // Status checks
-        const isFullyPaid  = invStatus === 'paid' || (invTotal > 0 && invBalance <= 0.005)
-        const isPartial    = invStatus === 'partially_paid' || (invTotal > 0 && invBalance > 0.005 && invPaid > 0)
-        const paidPct      = invTotal > 0 ? Math.min(100, Math.round((invPaid / invTotal) * 100)) : 100
+        const history      = payment.invoice_payment_history || []
+
+        // For status hero: use live invoice_status / paid_amount from the API response
+        const invTotal  = Number(payment.invoice_total || 0)
+        const invPaid   = Number(payment.invoice_paid_amount || 0)
+        const invStatus = payment.invoice_status || ''
+        const invBalance = Math.max(0, invTotal - invPaid)
+
+        const isFullyPaid = invStatus === 'paid' || (invTotal > 0 && invBalance <= 0.005)
+        const isPartial   = !isFullyPaid && (invStatus === 'partially_paid' || (invTotal > 0 && invPaid > 0.005))
+        const paidPct     = invTotal > 0 ? Math.min(100, Math.round((invPaid / invTotal) * 100)) : 100
+
         const statusStyle  = STATUS_COLORS[payment.status] || { bg: '#f1f5f9', color: '#475569' }
-        
         const methodDisplay = (payment.method || 'payment').replace(/_/g, ' ')
 
         return (
@@ -152,7 +283,6 @@ function PaymentDetailModal({ paymentId, onClose }) {
               <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-1px', color: '#111', marginBottom: 6 }}>
                 {fmt.currency(totalAmt, payment.currency)}
               </div>
-              {/* Full / Partial badge */}
               <div style={{ marginBottom: 10 }}>
                 <span style={{
                   display: 'inline-block', padding: '5px 18px', borderRadius: 20,
@@ -160,10 +290,10 @@ function PaymentDetailModal({ paymentId, onClose }) {
                   background: isFullyPaid ? '#059669' : isPartial ? '#d97706' : '#3b82f6',
                   color: '#fff',
                 }}>
-                  {isFullyPaid 
-                    ? `✓ Fully Paid via ${methodDisplay}` 
-                    : isPartial 
-                    ? `⚡ Partial via ${methodDisplay}` 
+                  {isFullyPaid
+                    ? `✓ Fully Paid via ${methodDisplay}`
+                    : isPartial
+                    ? `⚡ Partial via ${methodDisplay}`
                     : `💰 Received via ${methodDisplay}`}
                 </span>
               </div>
@@ -186,7 +316,7 @@ function PaymentDetailModal({ paymentId, onClose }) {
               </div>
             </div>
 
-            {/* ── Payment Progress Bar ── */}
+            {/* ── Invoice Payment Progress ── */}
             {invTotal > 0 && (
               <div style={{
                 background: 'var(--c-surface2)', borderRadius: 10, border: '1px solid var(--c-border)',
@@ -219,13 +349,20 @@ function PaymentDetailModal({ paymentId, onClose }) {
               </div>
             )}
 
-            {/* ── Transaction / Payment Info ── */}
+            {/* ── Transaction History (ALL payments on this invoice) ── */}
+            <InvoiceTransactionHistory
+              history={history}
+              invoiceTotal={invTotal}
+              currentPaymentId={payment.id}
+            />
+
+            {/* ── Payment Information ── */}
             <div style={{ background: 'var(--c-surface2)', borderRadius: 10, border: '1px solid var(--c-border)', overflow: 'hidden', marginBottom: 16 }}>
               <div style={{ padding: '9px 14px', background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                 💳 Payment Information
               </div>
 
-              {/* Payment Mode — prominent */}
+              {/* Payment Mode */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 14,
                 padding: '14px 16px', borderBottom: '1px solid var(--c-border)',
@@ -247,7 +384,7 @@ function PaymentDetailModal({ paymentId, onClose }) {
                 </div>
               </div>
 
-              {/* Transaction ID — highlighted box */}
+              {/* Transaction ID */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--c-border)', background: '#fafafa' }}>
                 <div style={{ fontSize: 10, color: 'var(--c-text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
                   🔖 Transaction ID / UTR
@@ -300,8 +437,8 @@ function PaymentDetailModal({ paymentId, onClose }) {
               <InvoiceItemsSection invoiceId={payment.invoice_id} />
             )}
 
-            {/* ── Allocation breakdown ── */}
-            {allocations.length > 0 && (
+            {/* ── Allocation breakdown (multi-invoice) ── */}
+            {allocations.length > 1 && (
               <div style={{ background: 'var(--c-surface2)', borderRadius: 10, border: '1px solid var(--c-border)', overflow: 'hidden', marginBottom: 16 }}>
                 <div style={{ padding: '9px 14px', background: 'var(--c-surface)', borderBottom: '1px solid var(--c-border)', fontSize: 10, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                   🧾 Invoice Allocations ({allocations.length})
@@ -354,9 +491,9 @@ function PaymentDetailModal({ paymentId, onClose }) {
                 Amount Summary
               </div>
               {[
-                { label: 'Total Payment',        value: fmt.currency(totalAmt),     color: '#111',    bold: false },
-                { label: 'Allocated to Invoice', value: fmt.currency(allocatedAmt), color: '#10b981', bold: true },
-                { label: 'Unapplied / Advance',  value: fmt.currency(unappliedAmt), color: unappliedAmt > 0 ? '#f59e0b' : '#94a3b8', bold: unappliedAmt > 0 },
+                { label: 'This Payment',          value: fmt.currency(totalAmt),     color: '#111',    bold: false },
+                { label: 'Applied to Invoice',    value: fmt.currency(allocatedAmt), color: '#10b981', bold: true },
+                { label: 'Unapplied / Advance',   value: fmt.currency(unappliedAmt), color: unappliedAmt > 0 ? '#f59e0b' : '#94a3b8', bold: unappliedAmt > 0 },
               ].map(({ label, value, color, bold }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                   <span style={{ color: '#64748b' }}>{label}</span>
@@ -368,7 +505,7 @@ function PaymentDetailModal({ paymentId, onClose }) {
                   <div style={{ borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                     <span style={{ fontWeight: 700 }}>Invoice Balance Due</span>
-                    <span style={{ fontWeight: 800, color: invBalance > 0.005 ? '#ef4444' : '#10b981' }}>
+                    <span style={{ fontWeight: 800, color: invBalance <= 0.005 ? '#10b981' : '#ef4444' }}>
                       {invBalance <= 0.005 ? '✅ Nil — Fully Paid' : fmt.currency(invBalance)}
                     </span>
                   </div>
@@ -376,8 +513,21 @@ function PaymentDetailModal({ paymentId, onClose }) {
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" onClick={onClose}>Close</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {payment.invoice_id ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    onClose()
+                    onViewInvoice?.(payment.invoice_id)
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+                >
+                  <FileText size={14} /> View Invoice &amp; Receipt
+                </button>
+              ) : <div />}
+              <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
             </div>
           </div>
         )
@@ -386,11 +536,12 @@ function PaymentDetailModal({ paymentId, onClose }) {
   )
 }
 
+// ─── Record Payment Form ─────────────────────────────────────────────────────
 function PaymentForm({ invoices, onSuccess, onCancel }) {
   const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm({
-    defaultValues: { 
-      method: 'bank_transfer', 
-      currency: 'INR', 
+    defaultValues: {
+      method: 'bank_transfer',
+      currency: 'INR',
       date: new Date().toISOString().split('T')[0],
       reference: 'TXN-' + Math.random().toString(36).substring(2, 10).toUpperCase()
     },
@@ -473,11 +624,12 @@ function PaymentForm({ invoices, onSuccess, onCancel }) {
   )
 }
 
+// ─── Main Page ───────────────────────────────────────────────────────────────
 export default function PaymentsPage() {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const [statusTab, setStatusTab] = useState('all') // 'all', 'fully_paid', 'partially_paid', 'advance'
+  const [statusTab, setStatusTab] = useState('all')
   const [previewInvoiceId, setPreviewInvoiceId] = useState(null)
   const [selectedPaymentId, setSelectedPaymentId] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -514,13 +666,17 @@ export default function PaymentsPage() {
     return clear
   }, [setActions, setContext, clear])
 
-  // Helper to determine payment/invoice status: strictly 'fully_paid' or 'partially_paid' (or 'cancelled')
+  // Determine the true payment status using invoice_status (now included in list API).
+  // invoice_status is the LIVE status of the invoice — 'paid' means fully cleared even
+  // if THIS individual payment was only partial.
   const getPaymentStatus = (p) => {
     if (p.status === 'cancelled' || p.status === 'reversed') return 'cancelled'
+    // Trust the live invoice status first
     if (p.invoice_status === 'paid') return 'fully_paid'
     if (p.invoice_status === 'partially_paid') return 'partially_paid'
+    // Fallback: math-based check
     const invTotal = Number(p.invoice_total || 0)
-    const paidAmt = Number(p.invoice_paid_amount || p.allocated_amount || p.amount || 0)
+    const paidAmt  = Number(p.invoice_paid_amount || p.allocated_amount || p.amount || 0)
     if (invTotal > 0) {
       if (paidAmt >= invTotal - 0.005) return 'fully_paid'
       return 'partially_paid'
@@ -531,9 +687,9 @@ export default function PaymentsPage() {
 
   const renderStatusBadge = (p) => {
     const st = getPaymentStatus(p)
-    if (st === 'cancelled') return <Badge status="cancelled" label="Cancelled" />
-    if (st === 'partially_paid') return <Badge status="processing" label="Partially Paid" />
-    return <Badge status="paid" label="Fully Paid" />
+    if (st === 'cancelled')      return <Badge status="cancelled"   label="Cancelled" />
+    if (st === 'partially_paid') return <Badge status="processing"  label="Partially Paid" />
+    return                              <Badge status="paid"        label="Fully Paid" />
   }
 
   const filtered = payments.filter((p) => {
@@ -548,21 +704,15 @@ export default function PaymentsPage() {
     return matchTab && matchSearch
   })
 
-  const handleViewPayment = (p) => {
-    if (p.invoice_id) {
-      setPreviewInvoiceId(p.invoice_id)
-    } else {
-      setSelectedPaymentId(p.id)
-    }
-  }
+  const handleViewPayment = (p) => setSelectedPaymentId(p.id)
 
   const totalCollected = payments.reduce((s, p) => s + Number(p.amount || 0), 0)
   const totalAllocated = payments.reduce((s, p) => s + Number(p.allocated_amount || 0), 0)
   const totalUnapplied = payments.reduce((s, p) => s + Number(p.unapplied_amount || 0), 0)
 
   const counts = {
-    all: payments.length,
-    fully_paid: payments.filter((p) => getPaymentStatus(p) === 'fully_paid').length,
+    all:            payments.length,
+    fully_paid:     payments.filter((p) => getPaymentStatus(p) === 'fully_paid').length,
     partially_paid: payments.filter((p) => getPaymentStatus(p) === 'partially_paid').length,
   }
 
@@ -628,8 +778,8 @@ export default function PaymentsPage() {
         <div className="inv-filter-right">
           <div className="pill-tabs">
             {[
-              { id: 'all', label: `All (${counts.all})` },
-              { id: 'fully_paid', label: `Fully Paid (${counts.fully_paid})` },
+              { id: 'all',            label: `All (${counts.all})` },
+              { id: 'fully_paid',     label: `Fully Paid (${counts.fully_paid})` },
               { id: 'partially_paid', label: `Partially Paid (${counts.partially_paid})` },
             ].map((t) => (
               <button
@@ -710,9 +860,7 @@ export default function PaymentsPage() {
                       <td style={{ fontWeight: 800, color: 'var(--c-green)', fontSize: 14 }}>
                         +{fmt.currency(p.amount, p.currency)}
                       </td>
-                      <td>
-                        {renderStatusBadge(p)}
-                      </td>
+                      <td>{renderStatusBadge(p)}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="tbl-actions">
                           <button className="topbar-icon-btn" title="View Receipt / Details" onClick={() => handleViewPayment(p)}>
@@ -737,7 +885,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* Invoice Receipt Modal (Opens directly on Receipt Tab) */}
+      {/* Invoice Receipt Modal */}
       {previewInvoiceId && (
         <InvoicePreview
           invoiceId={previewInvoiceId}
@@ -746,11 +894,12 @@ export default function PaymentsPage() {
         />
       )}
 
-      {/* Unlinked Payment Detail Modal */}
+      {/* Payment Detail Modal */}
       {selectedPaymentId && (
         <PaymentDetailModal
           paymentId={selectedPaymentId}
           onClose={() => setSelectedPaymentId(null)}
+          onViewInvoice={(invId) => setPreviewInvoiceId(invId)}
         />
       )}
 

@@ -8,6 +8,8 @@ const { sendSuccess, sendError }    = require('../utils/response');
 const PaymentAllocationService      = require('../services/paymentAllocationService');
 
 // List payments / receipts (paginated)
+// NOTE: includes invoice_status + invoice_paid_amount so the frontend can
+//       correctly show Fully Paid vs Partially Paid even after a second payment clears the invoice.
 router.get('/', requireAuth, async (req, res) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page)  || 1);
@@ -19,9 +21,16 @@ router.get('/', requireAuth, async (req, res) => {
               p.currency, p.method, p.reference, p.notes, p.status, p.created_at,
               p.receipt_number, p.bank_name, p.cheque_number, p.cheque_date,
               p.transaction_id, p.terms, p.payment_details, p.created_by,
-              i.number AS invoice_number, i.date AS invoice_date, i.total AS invoice_total,
-              c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone,
-              c.address AS customer_address, c.gstin AS customer_gstin,
+              i.number      AS invoice_number,
+              i.date        AS invoice_date,
+              i.total       AS invoice_total,
+              i.paid_amount AS invoice_paid_amount,
+              i.status      AS invoice_status,
+              c.name    AS customer_name,
+              c.email   AS customer_email,
+              c.phone   AS customer_phone,
+              c.address AS customer_address,
+              c.gstin   AS customer_gstin,
               COALESCE(
                 STRING_AGG(i_alloc.number, ', '),
                 i.number,
@@ -33,7 +42,9 @@ router.get('/', requireAuth, async (req, res) => {
          LEFT JOIN payment_allocations pa ON p.id = pa.payment_id
          LEFT JOIN invoices i_alloc ON pa.invoice_id = i_alloc.id
         WHERE p.org_id = $1 AND p.deleted_at IS NULL
-        GROUP BY p.id, i.number, i.date, i.total, c.name, c.email, c.phone, c.address, c.gstin
+        GROUP BY p.id,
+                 i.number, i.date, i.total, i.paid_amount, i.status,
+                 c.name, c.email, c.phone, c.address, c.gstin
         ORDER BY p.payment_date DESC, p.created_at DESC
         LIMIT $2 OFFSET $3`,
       [req.orgId, limit, offset]
@@ -92,23 +103,26 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// Get single payment / receipt with allocations and customer/invoice details
+// Get single payment / receipt with:
+//   • allocations — what invoices this payment was applied to
+//   • invoice_payment_history — ALL payments ever made against the same invoice
+//     (so the detail modal can show the complete transaction timeline)
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT p.*,
               p.payment_date AS date,
-              i.number  AS invoice_number,
-              i.date    AS invoice_date,
-              i.total   AS invoice_total,
+              i.number    AS invoice_number,
+              i.date      AS invoice_date,
+              i.total     AS invoice_total,
               i.paid_amount AS invoice_paid_amount,
-              i.status  AS invoice_status,
-              i.due_date AS invoice_due_date,
-              c.name    AS customer_name,
-              c.email   AS customer_email,
-              c.phone   AS customer_phone,
-              c.address AS customer_address,
-              c.gstin   AS customer_gstin
+              i.status    AS invoice_status,
+              i.due_date  AS invoice_due_date,
+              c.name      AS customer_name,
+              c.email     AS customer_email,
+              c.phone     AS customer_phone,
+              c.address   AS customer_address,
+              c.gstin     AS customer_gstin
          FROM payments p
          LEFT JOIN invoices  i ON p.invoice_id  = i.id
          LEFT JOIN customers c ON p.customer_id = c.id
@@ -117,6 +131,9 @@ router.get('/:id', requireAuth, async (req, res) => {
     );
     if (!rows.length) return sendError(res, 'Payment not found', 'NOT_FOUND', 404);
 
+    const payment = rows[0];
+
+    // Allocations for THIS payment
     const allocations = await db.query(
       `SELECT pa.*, i.number AS invoice_number, i.date AS invoice_date, i.total AS invoice_total,
               i.paid_amount AS invoice_paid_amount, i.customer_name,
@@ -127,7 +144,32 @@ router.get('/:id', requireAuth, async (req, res) => {
         ORDER BY pa.created_at ASC`,
       [req.params.id]
     );
-    sendSuccess(res, { ...rows[0], allocations: allocations.rows });
+
+    // Full payment history for the linked invoice (all transactions, not just this one)
+    // This powers the "Transaction History" timeline in the detail modal.
+    let invoicePaymentHistory = [];
+    if (payment.invoice_id) {
+      const histRows = await db.query(
+        `SELECT p2.id, p2.payment_date AS date, p2.amount, p2.method,
+                p2.reference, p2.transaction_id, p2.status, p2.notes,
+                p2.currency, p2.allocated_amount,
+                pa2.amount AS allocated_to_invoice
+           FROM payments p2
+           JOIN payment_allocations pa2 ON pa2.payment_id = p2.id
+          WHERE pa2.invoice_id = $1
+            AND p2.org_id = $2
+            AND p2.deleted_at IS NULL
+          ORDER BY p2.payment_date ASC, p2.created_at ASC`,
+        [payment.invoice_id, req.orgId]
+      );
+      invoicePaymentHistory = histRows.rows;
+    }
+
+    sendSuccess(res, {
+      ...payment,
+      allocations: allocations.rows,
+      invoice_payment_history: invoicePaymentHistory,
+    });
   } catch (err) {
     console.error('Get payment error:', err);
     sendError(res, 'Internal server error', 'INTERNAL_ERROR', 500);

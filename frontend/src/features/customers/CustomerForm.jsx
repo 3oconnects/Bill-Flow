@@ -13,11 +13,34 @@ export default function CustomerForm({ initial, onSuccess, onCancel }) {
   const mutation = useMutation({
     mutationFn: (data) => initial ? customersApi.update(initial.id, data) : customersApi.create(data),
     onSuccess,
-    onError: (e) => setApiError(e.message),
+    onError: (e) => {
+      // e.fieldErrors is set by the API interceptor for VALIDATION_ERROR responses
+      const FIELD_LABELS = {
+        name: 'Name', email: 'Email', phone: 'Phone', address: 'Address',
+        city: 'City', state: 'State', country: 'Country', pincode: 'Pincode',
+        gstin: 'GSTIN / Tax ID', pan: 'PAN Number', currency: 'Currency',
+        credit_limit: 'Credit Limit', notes: 'Notes',
+      }
+      if (e.fieldErrors && e.fieldErrors.length > 0) {
+        const msg = e.fieldErrors
+          .map(fe => `${FIELD_LABELS[fe.field] || fe.field || 'Field'}: ${fe.message}`)
+          .join(' · ')
+        setApiError(msg)
+      } else {
+        setApiError(e.message)
+      }
+    },
   })
 
   return (
-    <form onSubmit={handleSubmit((d) => { setApiError(null); mutation.mutate(d) })}>
+    <form onSubmit={handleSubmit((d) => {
+        setApiError(null)
+        // react-hook-form sends NaN for empty number inputs with valueAsNumber:true
+        if (typeof d.credit_limit === 'number' && Number.isNaN(d.credit_limit)) {
+          d.credit_limit = undefined
+        }
+        mutation.mutate(d)
+      })}>
       <div className="po-form-standard">
         {apiError && (
           <div style={{ background: 'var(--c-red-lt)', color: 'var(--c-red)', padding: '12px 16px', borderRadius: 'var(--radius)', fontSize: '13px', marginBottom: '24px', border: '1px solid #f5c6c6' }}>

@@ -17,7 +17,15 @@ import InvoiceScanner from './InvoiceScanner'
 import InvoicePaymentModal from './InvoicePaymentModal'
 import Modal from '@/components/Modal'
 
-const STATUS_TABS = ['all','draft','sent','paid','overdue','cancelled']
+const STATUS_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'draft', label: 'Draft' },
+  { id: 'sent', label: 'Sent' },
+  { id: 'partially_paid', label: 'Partially Paid' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'overdue', label: 'Overdue' },
+  { id: 'cancelled', label: 'Cancelled' },
+]
 const CARD_AVATAR_COLORS = ['blue','green','orange','purple','teal']
 
 const SHIPMENT_LABELS = { not_shipped: 'Not Shipped', processing: 'Processing', shipped: 'Shipped', delivered: 'Delivered' }
@@ -178,7 +186,9 @@ export default function InvoicesPage() {
   })
 
   const filtered = invoices.filter((inv) => {
-    const matchStatus = activeTab === 'all' || inv.status === activeTab
+    const isPartial = inv.status === 'partially_paid' || (Number(inv.paid_amount || 0) > 0 && inv.status !== 'paid' && inv.status !== 'cancelled')
+    const matchStatus = activeTab === 'all' ||
+      (activeTab === 'partially_paid' ? isPartial : inv.status === activeTab)
     const matchSearch = !search ||
       inv.number?.toLowerCase().includes(search.toLowerCase()) ||
       inv.customer_name?.toLowerCase().includes(search.toLowerCase())
@@ -206,32 +216,83 @@ export default function InvoicesPage() {
     all: invoices.length,
     draft: invoices.filter((i) => i.status === 'draft').length,
     sent: invoices.filter((i) => i.status === 'sent').length,
+    partially_paid: invoices.filter((i) => i.status === 'partially_paid' || (Number(i.paid_amount || 0) > 0 && i.status !== 'paid' && i.status !== 'cancelled')).length,
     paid: invoices.filter((i) => i.status === 'paid').length,
     overdue: invoices.filter((i) => i.status === 'overdue').length,
     cancelled: invoices.filter((i) => i.status === 'cancelled').length,
   }
  
   const totalValue = invoices.reduce((s, i) => s + Number(i.total || 0), 0)
-  const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total || 0), 0)
-  const totalPending = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((s, i) => s + Number(i.total || 0), 0)
-  const totalOverdue = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.total || 0), 0)
+  const totalPaid = invoices.reduce((s, i) => s + Number(i.paid_amount || (i.status === 'paid' ? i.total : 0)), 0)
+  const totalPending = invoices
+    .filter((i) => !['draft', 'paid', 'cancelled', 'void'].includes(i.status))
+    .reduce((s, i) => s + Math.max(0, Number(i.total || 0) - Number(i.paid_amount || 0)), 0)
+  const totalOverdue = invoices
+    .filter((i) => i.status === 'overdue')
+    .reduce((s, i) => s + Math.max(0, Number(i.total || 0) - Number(i.paid_amount || 0)), 0)
 
   if (isLoading) return <PageLoading />
 
   const renderPaymentCell = (inv) => {
     if (inv.status === 'paid') {
-      return <Badge status="paid" label="Paid" />
+      return (
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '2px 8px',
+          borderRadius: 12,
+          background: 'var(--c-green-lt, #d1fae5)',
+          color: 'var(--c-green, #065f46)',
+          fontSize: 11,
+          fontWeight: 700,
+        }}>
+          ✓ Paid
+        </span>
+      )
     }
     if (inv.status === 'cancelled') {
       return <span style={{ color: 'var(--c-text3)' }}>—</span>
     }
+
+    const totalAmt = Number(inv.total || 0)
+    const paidAmt = Number(inv.paid_amount || 0)
+    const balDue = Math.max(0, totalAmt - paidAmt)
+    const isPartial = inv.status === 'partially_paid' || (paidAmt > 0 && balDue > 0.005)
+    const pct = totalAmt > 0 ? Math.min(100, Math.round((paidAmt / totalAmt) * 100)) : 0
+
+    if (isPartial) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 124 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11 }}>
+            <span style={{ fontWeight: 700, color: '#b45309' }}>Paid {fmt.currency(paidAmt)}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text3)' }}>{pct}%</span>
+          </div>
+          <div style={{ height: 4, background: '#fef3c7', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: '#f59e0b', borderRadius: 2 }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10 }}>
+            <span style={{ color: '#ef4444', fontWeight: 600 }}>Due: {fmt.currency(balDue)}</span>
+            <button
+              className="btn btn-primary btn-xs"
+              style={{ padding: '2px 6px', fontSize: 10, height: 18, lineHeight: 1 }}
+              onClick={(e) => { e.stopPropagation(); setPaymentInvoiceId(inv.id) }}
+              title="Record payment"
+            >
+              + Collect
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <button
         className="btn btn-primary btn-sm"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12 }}
         onClick={(e) => { e.stopPropagation(); setPaymentInvoiceId(inv.id) }}
       >
-        <CreditCard size={13} /> Payment
+        <CreditCard size={13} /> Collect
       </button>
     )
   }
@@ -321,11 +382,18 @@ export default function InvoicesPage() {
         </div>
         <div className="inv-filter-right">
           <div className="pill-tabs">
-            {STATUS_TABS.map((s) => (
-              <button key={s} className={`pill-tab${activeTab === s ? ' active' : ''}`} onClick={() => setActiveTab(s)}>
-                {s.charAt(0).toUpperCase() + s.slice(1)} ({s === 'all' ? invoices.length : totals[s]})
-              </button>
-            ))}
+            {STATUS_TABS.map((t) => {
+              const count = t.id === 'all' ? invoices.length : totals[t.id] || 0
+              return (
+                <button
+                  key={t.id}
+                  className={`pill-tab${activeTab === t.id ? ' active' : ''}`}
+                  onClick={() => setActiveTab(t.id)}
+                >
+                  {t.label} ({count})
+                </button>
+              )
+            })}
           </div>
           <div className="view-toggle-bar">
             <button className={`view-toggle-btn${view === 'table' ? ' active' : ''}`} title="Table view" onClick={() => setView('table')}>
@@ -367,6 +435,14 @@ export default function InvoicesPage() {
                 <div className="item-card-field"><span className="item-card-field-label">Invoice Date</span><span className="item-card-field-val">{fmt.date(inv.date)}</span></div>
                 <div className="item-card-field"><span className="item-card-field-label">Due Date</span><span className="item-card-field-val" style={inv.status === 'overdue' ? { color: 'var(--c-red)', fontWeight: 600 } : undefined}>{fmt.date(inv.due_date)}</span></div>
                 <div className="item-card-field"><span className="item-card-field-label">Amount</span><span className="item-card-amount">{fmt.currency(inv.total, inv.currency)}</span></div>
+                {Number(inv.paid_amount || 0) > 0 && inv.status !== 'paid' && (
+                  <div className="item-card-field">
+                    <span className="item-card-field-label">Balance Due</span>
+                    <span style={{ fontWeight: 700, color: '#ef4444' }}>
+                      {fmt.currency(Math.max(0, Number(inv.total || 0) - Number(inv.paid_amount || 0)))}
+                    </span>
+                  </div>
+                )}
                 <div className="item-card-field"><span className="item-card-field-label">Payment</span>{renderPaymentCell(inv)}</div>
               </div>
               <hr className="item-card-divider" />

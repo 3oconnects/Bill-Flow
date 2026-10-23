@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Printer, Send, CheckCircle, Truck, MessageCircle, Bell, BellOff, Clock, AlertTriangle, CheckCircle2, Download } from 'lucide-react'
-import { QRCodeCanvas } from 'qrcode.react'
+import { QRCodeSVG } from 'qrcode.react'
 import { invoicesApi, orgApi } from '@/api'
 import { fmt, amountToWords } from '@/lib/utils'
 import { Spinner, Badge } from '@/components/ui'
@@ -33,21 +33,32 @@ function ShipmentBar({ status }) {
 }
 
 function InvoiceQRCode({ invoiceNumber }) {
-  const canvasRef = useRef(null)
+  const qrRef = useRef(null)
   const [downloaded, setDownloaded] = useState(false)
 
   if (!invoiceNumber) return null
 
   const handleDownload = () => {
-    // The QRCodeCanvas renders a <canvas> inside the wrapper div
-    const canvas = canvasRef.current?.querySelector('canvas')
-    if (!canvas) return
-    const link = document.createElement('a')
-    link.download = `QR-${invoiceNumber}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
-    setDownloaded(true)
-    setTimeout(() => setDownloaded(false), 2000)
+    const svg = qrRef.current?.querySelector('svg')
+    if (!svg) return
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    img.onload = () => {
+      canvas.width = 300
+      canvas.height = 300
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, 300, 300)
+      ctx.drawImage(img, 0, 0, 300, 300)
+      const link = document.createElement('a')
+      link.download = `QR-${invoiceNumber}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      setDownloaded(true)
+      setTimeout(() => setDownloaded(false), 2000)
+    }
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)))
   }
 
   return (
@@ -69,15 +80,14 @@ function InvoiceQRCode({ invoiceNumber }) {
         Scan to verify
       </div>
 
-      {/* QR canvas */}
-      <div ref={canvasRef}>
-        <QRCodeCanvas
+      {/* QR SVG */}
+      <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center' }}>
+        <QRCodeSVG
           value={invoiceNumber}
           size={80}
           bgColor="#ffffff"
           fgColor="#111827"
           level="M"
-          includeMargin={false}
         />
       </div>
 
@@ -97,6 +107,7 @@ function InvoiceQRCode({ invoiceNumber }) {
 
       {/* Download button */}
       <button
+        className="no-print"
         onClick={handleDownload}
         title="Download QR code as PNG"
         style={{
@@ -127,8 +138,12 @@ function InvoiceQRCode({ invoiceNumber }) {
 }
 
 function InvoiceTab({ inv, org }) {
-  const paidTotal = (inv.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0)
-  const balance = Number(inv.total || 0) - paidTotal
+  const paidTotal = (inv.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0) || Number(inv.paid_amount || 0)
+  const balance = Math.max(0, Number(inv.total || 0) - paidTotal)
+  const effectiveStatus = inv.status === 'paid' ? 'paid' :
+                         balance <= 0.005 && Number(inv.total || 0) > 0 ? 'paid' :
+                         paidTotal > 0 ? 'partially_paid' : inv.status
+
   return (
     <div id="printable-invoice" style={{ background: 'white', color: '#111', padding: 40, borderRadius: 8, fontSize: 13, lineHeight: 1.6 }}>
       {/* Header */}
@@ -146,7 +161,7 @@ function InvoiceTab({ inv, org }) {
           <div style={{ fontSize: 13, color: '#555' }}>#{inv.number}</div>
           <div style={{ fontSize: 12, color: '#555', marginTop: 8 }}>Date: {fmt.date(inv.date)}</div>
           <div style={{ fontSize: 12, color: '#555' }}>Due: {fmt.date(inv.due_date)}</div>
-          <div style={{ marginTop: 8 }}><Badge status={inv.status} /></div>
+          <div style={{ marginTop: 8 }}><Badge status={effectiveStatus} /></div>
         </div>
       </div>
 
@@ -209,13 +224,17 @@ function InvoiceTab({ inv, org }) {
           </div>
           {paidTotal > 0 && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13 }}>
-                <span style={{ color: '#10b981' }}>Amount Paid</span>
-                <span style={{ color: '#10b981', fontWeight: 700 }}>{fmt.currency(paidTotal)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, color: '#059669' }}>
+                <span style={{ fontWeight: 600 }}>Amount Paid</span>
+                <span style={{ fontWeight: 700 }}>{fmt.currency(paidTotal)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, borderTop: '1px solid #eee' }}>
-                <span style={{ fontWeight: 700, color: balance > 0 ? '#ef4444' : '#10b981' }}>Balance Due</span>
-                <span style={{ fontWeight: 700, color: balance > 0 ? '#ef4444' : '#10b981' }}>{fmt.currency(balance)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 14, borderTop: '1px solid #e5e7eb', marginTop: 2 }}>
+                <span style={{ fontWeight: 800, color: balance > 0.005 ? '#dc2626' : '#059669' }}>
+                  {balance > 0.005 ? 'Balance Due' : 'Balance Settled'}
+                </span>
+                <span style={{ fontWeight: 800, color: balance > 0.005 ? '#dc2626' : '#059669' }}>
+                  {balance > 0.005 ? fmt.currency(balance) : '✅ Fully Cleared'}
+                </span>
               </div>
             </>
           )}
@@ -261,10 +280,10 @@ function ReceiptTab({ inv, org }) {
   const items = inv.items || []
 
   // Running totals
-  const totalPaid = payments.reduce((s, p) => s + Number(p.amount || 0), 0)
+  const totalPaid = (inv.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0) || Number(inv.paid_amount || 0)
   const balanceDue = Math.max(0, invoiceTotal - totalPaid)
   const isPartial = balanceDue > 0.005 && totalPaid > 0
-  const isFullyPaid = balanceDue <= 0.005 || inv.status === 'paid'
+  const isFullyPaid = (balanceDue <= 0.005 && invoiceTotal > 0) || inv.status === 'paid'
 
   const METHOD_ICONS = {
     cash: '💵', bank_transfer: '🏦', cheque: '📝', upi: '📱',
@@ -281,8 +300,22 @@ function ReceiptTab({ inv, org }) {
     const w = window.open('', '_blank')
     if (!w) return
     w.document.write(`<html><head><title>Payment Receipt - ${inv.number}</title><style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; color: #111827; }
-      @media print { body { padding: 0; } }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        color: #111827;
+        background: #ffffff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      @media print {
+        body { padding: 0; }
+        .no-print { display: none !important; }
+      }
+      table { border-collapse: collapse; width: 100%; }
+      svg { max-width: 100%; }
     </style></head><body>`)
     w.document.write(content.innerHTML)
     w.document.write('</body></html>')
@@ -809,11 +842,30 @@ export default function InvoicePreviewModal({ invoiceId, onClose, onStatusChange
     const content = document.getElementById('printable-invoice')
     if (!content) return
     const w = window.open('', '_blank')
-    w.document.write(`<html><head><title>Invoice ${inv?.number}</title><style>body{font-family:sans-serif;margin:0;padding:0;}</style></head><body>`)
+    if (!w) return
+    w.document.write(`<html><head><title>Invoice ${inv?.number || ''}</title><style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        color: #111827;
+        background: #ffffff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      @media print {
+        body { padding: 0; }
+        .no-print { display: none !important; }
+      }
+      table { border-collapse: collapse; width: 100%; }
+      svg { max-width: 100%; }
+    </style></head><body>`)
     w.document.write(content.innerHTML)
     w.document.write('</body></html>')
     w.document.close()
-    w.print()
+    w.focus()
+    setTimeout(() => w.print(), 300)
   }
 
   const handleWhatsApp = () => {

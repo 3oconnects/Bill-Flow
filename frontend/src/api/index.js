@@ -10,7 +10,12 @@ api.interceptors.response.use(
   (res) => res.data?.data ?? res.data,
   (err) => {
     const msg = err.response?.data?.error?.message || err.response?.data?.error || err.message || 'Request failed'
-    return Promise.reject(new Error(msg))
+    const error = new Error(msg)
+    // Attach field-level errors for validation responses.
+    // The backend sendError() puts the errors array at error.details.errors
+    const fieldErrors = err.response?.data?.error?.details?.errors ?? err.response?.data?.error?.errors
+    if (Array.isArray(fieldErrors)) error.fieldErrors = fieldErrors
+    return Promise.reject(error)
   }
 )
 
@@ -61,19 +66,26 @@ export const customersApi = {
   remove: (id)       => api.delete(`/customers/${id}`),
 }
 
-// ── Vendors ──────────────────────────────────────
+// -- Vendors --------------------------------------------------
 export const vendorsApi = {
-  list:          ()              => api.get('/vendors'),
-  get:           (id)            => api.get(`/vendors/${id}`),
-  products:      (id)            => api.get(`/vendors/${id}/products`),
-  expenses:      (id)            => api.get(`/vendors/${id}/expenses`),
-  summary:       (id)            => api.get(`/vendors/${id}/summary`),
-  create:        (data)          => api.post('/vendors', data),
-  update:        (id, data)      => api.put(`/vendors/${id}`, data),
-  remove:        (id)            => api.delete(`/vendors/${id}`),
-  uploadDoc:     (id, data)      => api.post(`/vendors/${id}/documents`, data),
-  deleteDoc:     (vid, did)      => api.delete(`/vendors/${vid}/documents/${did}`),
-  // Vendor ↔ product links
+  list:           ()              => api.get('/vendors'),
+  get:            (id)            => api.get(`/vendors/${id}`),
+  products:       (id)            => api.get(`/vendors/${id}/products`),
+  expenses:       (id)            => api.get(`/vendors/${id}/expenses`),
+  summary:        (id)            => api.get(`/vendors/${id}/summary`),
+  bills:          (id)            => api.get(`/vendors/${id}/bills`),
+  payments:       (id)            => api.get(`/vendors/${id}/payments`),
+  purchaseOrders: (id)            => api.get(`/vendors/${id}/purchase-orders`),
+  creditMemos:    (id)            => api.get(`/vendors/${id}/credit-memos`),
+  transactions:   (id, params)    => api.get(`/vendors/${id}/transactions`, { params }),
+  statement:      (id, params)    => api.get(`/vendors/${id}/statement`, { params }),
+  updateStatus:   (id, status)    => api.patch(`/vendors/${id}/status`, { status }),
+  create:         (data)          => api.post('/vendors', data),
+  update:         (id, data)      => api.put(`/vendors/${id}`, data),
+  remove:         (id)            => api.delete(`/vendors/${id}`),
+  uploadDoc:      (id, data)      => api.post(`/vendors/${id}/documents`, data),
+  deleteDoc:      (vid, did)      => api.delete(`/vendors/${vid}/documents/${did}`),
+  // Vendor <-> product links
   listProducts:   (id)             => asList(api.get(`/vendors/${id}/products`)),
   addProduct:     (id, data)       => api.post(`/vendors/${id}/products`, data),
   updateProduct:  (id, pvId, data) => api.put(`/vendors/${id}/products/${pvId}`, data),

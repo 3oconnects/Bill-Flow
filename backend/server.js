@@ -1,6 +1,8 @@
 // backend/server.js — PRODUCTION HARDENED
 'use strict';
-require('dotenv').config();
+// Use an absolute path so .env is found regardless of which directory
+// the server process is started from (root vs backend/).
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 const express      = require('express');
 const cookieParser = require('cookie-parser');

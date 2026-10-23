@@ -48,14 +48,29 @@ router.get('/summary', requireAuth, async (req, res) => {
   }
 });
 
-// Chart data
+// Chart data (supports mode=day|week|month|year, optional from/to for custom range)
 router.get('/chart', requireAuth, async (req, res) => {
   try {
-    const { mode } = req.query;
+    const { mode, from, to } = req.query;
+    const org = req.orgId;
     let data = [];
-    if (mode === 'day')       data = await stmts.getDailyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
-    else if (mode === 'year') data = await stmts.getYearlyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
-    else                      data = await stmts.getMonthlyChartData.all(req.orgId, req.orgId, req.orgId, req.orgId);
+
+    const hasRange = from && to;
+
+    if (hasRange) {
+      // Custom date range (defaults to day-wise series for the range)
+      if (mode === 'week')       data = await stmts.getWeeklyChartDataRange.all(org, org, from, to, org, org);
+      else if (mode === 'month') data = await stmts.getMonthlyChartDataRange.all(org, org, from, to, org, org);
+      else if (mode === 'year')  data = await stmts.getYearlyChartDataRange.all(org, org, from, to, org, org);
+      else                       data = await stmts.getDailyChartDataRange.all(org, org, from, to, org, org);
+    } else {
+      // Default ranges
+      if (mode === 'day')        data = await stmts.getDailyChartData.all(org, org, org, org);
+      else if (mode === 'week')  data = await stmts.getWeeklyChartData.all(org, org, org, org);
+      else if (mode === 'year')  data = await stmts.getYearlyChartData.all(org, org, org, org);
+      else                       data = await stmts.getMonthlyChartData.all(org, org, org, org);
+    }
+
     sendSuccess(res, { points: data });
   } catch (err) {
     console.error('Get chart data error:', err);

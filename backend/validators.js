@@ -53,11 +53,12 @@ const customerSchemas = {
     country:      z.string().max(100).optional(),
     pincode:      z.string().max(10).optional(),
     gstin:        z.string().max(15).optional(),
-    pan:          z.string().max(10).optional(),
+    pan:          z.string().max(20).optional(),
     currency:     z.string().max(3).optional(),
-    // Coerce: HTML number inputs submit strings ("" / "5000"). Empty → 0.
+    // Coerce: HTML number inputs submit strings ("" / "5000"). Empty or NaN → 0.
+    // react-hook-form with valueAsNumber:true sends NaN when the field is blank.
     credit_limit: z.preprocess(
-      (v) => (v === '' || v === null || v === undefined ? 0 : v),
+      (v) => (v === '' || v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v)) ? 0 : v),
       z.coerce.number().nonnegative()
     ).optional(),
     notes:        z.string().max(1000).optional(),

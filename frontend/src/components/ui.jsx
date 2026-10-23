@@ -23,9 +23,12 @@ export function EmptyState({ icon, title, description, action }) {
 }
 
 export function Badge({ status, label }) {
-  // Maps status → CSS class (all defined in index.css)
-  const cls = status ? `badge-${status.toString().toLowerCase().replace(/ /g, '_')}` : 'badge-draft'
-  return <span className={`badge ${cls}`}>{label ?? status}</span>
+  const s = status ? status.toString().toLowerCase().replace(/[\s-]/g, '_') : 'draft'
+  const cls = `badge-${s}`
+  const defaultLabel = s === 'partially_paid' ? 'Partially Paid' :
+                       s === 'not_shipped' ? 'Not Shipped' :
+                       s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')
+  return <span className={`badge ${cls}`}>{label ?? defaultLabel}</span>
 }
 
 export function Modal({ children, isOpen, onClose, title, size = 'md', footer }) {

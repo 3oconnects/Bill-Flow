@@ -32,22 +32,31 @@ module.exports = {
     LIMIT 12
   `),
 
-  // Time-series Chart Data
+  // Time-series Chart Data (default ranges)
   getDailyChartData: db.prepare(`
     SELECT TO_CHAR(d::date, 'YYYY-MM-DD') as label,
            COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
            COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
     FROM generate_series(CURRENT_DATE - INTERVAL '30 days', CURRENT_DATE, '1 day'::interval) d
-    LEFT JOIN invoices i ON i.date::date = d::date AND i.org_id = ? AND i.deleted_at IS NULL
+    LEFT JOIN invoices i ON i.date::date = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
     LEFT JOIN expenses ex ON ex.date::date = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
     GROUP BY d ORDER BY d ASC
+  `),
+  getWeeklyChartData: db.prepare(`
+    SELECT TO_CHAR(DATE_TRUNC('week', d::date), 'YYYY-MM-DD') as label,
+           COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
+           COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
+    FROM generate_series(CURRENT_DATE - INTERVAL '12 weeks', CURRENT_DATE, '1 day'::interval) d
+    LEFT JOIN invoices i ON i.date::date = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
+    LEFT JOIN expenses ex ON ex.date::date = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
+    GROUP BY DATE_TRUNC('week', d::date) ORDER BY DATE_TRUNC('week', d::date) ASC
   `),
   getMonthlyChartData: db.prepare(`
     SELECT TO_CHAR(d::date, 'YYYY-MM') as label,
            COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
            COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
     FROM generate_series(DATE_TRUNC('year', CURRENT_DATE), DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '11 months', '1 month'::interval) d
-    LEFT JOIN invoices i ON DATE_TRUNC('month', i.date::date) = d::date AND i.org_id = ? AND i.deleted_at IS NULL
+    LEFT JOIN invoices i ON DATE_TRUNC('month', i.date::date) = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
     LEFT JOIN expenses ex ON DATE_TRUNC('month', ex.date::date) = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
     GROUP BY d ORDER BY d ASC
   `),
@@ -56,7 +65,45 @@ module.exports = {
            COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
            COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
     FROM generate_series(DATE_TRUNC('year', CURRENT_DATE) - INTERVAL '4 years', DATE_TRUNC('year', CURRENT_DATE), '1 year'::interval) d
-    LEFT JOIN invoices i ON DATE_TRUNC('year', i.date::date) = d::date AND i.org_id = ? AND i.deleted_at IS NULL
+    LEFT JOIN invoices i ON DATE_TRUNC('year', i.date::date) = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
+    LEFT JOIN expenses ex ON DATE_TRUNC('year', ex.date::date) = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
+    GROUP BY d ORDER BY d ASC
+  `),
+
+  // Time-series Chart Data (custom date ranges — from/to params)
+  getDailyChartDataRange: db.prepare(`
+    SELECT TO_CHAR(d::date, 'YYYY-MM-DD') as label,
+           COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
+           COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
+    FROM generate_series(?::date, ?::date, '1 day'::interval) d
+    LEFT JOIN invoices i ON i.date::date = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
+    LEFT JOIN expenses ex ON ex.date::date = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
+    GROUP BY d ORDER BY d ASC
+  `),
+  getWeeklyChartDataRange: db.prepare(`
+    SELECT TO_CHAR(DATE_TRUNC('week', d::date), 'YYYY-MM-DD') as label,
+           COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
+           COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
+    FROM generate_series(?::date, ?::date, '1 day'::interval) d
+    LEFT JOIN invoices i ON i.date::date = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
+    LEFT JOIN expenses ex ON ex.date::date = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
+    GROUP BY DATE_TRUNC('week', d::date) ORDER BY DATE_TRUNC('week', d::date) ASC
+  `),
+  getMonthlyChartDataRange: db.prepare(`
+    SELECT TO_CHAR(d::date, 'YYYY-MM') as label,
+           COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
+           COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
+    FROM generate_series(DATE_TRUNC('month', ?::date), DATE_TRUNC('month', ?::date), '1 month'::interval) d
+    LEFT JOIN invoices i ON DATE_TRUNC('month', i.date::date) = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
+    LEFT JOIN expenses ex ON DATE_TRUNC('month', ex.date::date) = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
+    GROUP BY d ORDER BY d ASC
+  `),
+  getYearlyChartDataRange: db.prepare(`
+    SELECT TO_CHAR(d::date, 'YYYY') as label,
+           COALESCE(SUM(CASE WHEN i.org_id = ? THEN i.total ELSE 0 END), 0) as revenue,
+           COALESCE(SUM(CASE WHEN ex.org_id = ? THEN ex.amount ELSE 0 END), 0) as expenses
+    FROM generate_series(DATE_TRUNC('year', ?::date), DATE_TRUNC('year', ?::date), '1 year'::interval) d
+    LEFT JOIN invoices i ON DATE_TRUNC('year', i.date::date) = d::date AND i.org_id = ? AND i.deleted_at IS NULL AND i.status != 'void'
     LEFT JOIN expenses ex ON DATE_TRUNC('year', ex.date::date) = d::date AND ex.org_id = ? AND ex.deleted_at IS NULL
     GROUP BY d ORDER BY d ASC
   `)
